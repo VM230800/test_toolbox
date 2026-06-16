@@ -1,121 +1,17 @@
-root@1702ee20fdbf:/# ls /media/dbdump
-COPYING  mbdump  mbdump.tar.bz2  README  REPLICATION_SEQUENCE  SCHEMA_SEQUENCE  TIMESTAMP
-root@1702ee20fdbf:/# ls /media/dbdump/mbdump
-alternative_release_type    iso_3166_3              l_event_place                   l_place_release
-area                        isrc                    l_event_recording               l_place_series
-area_alias                  iswc                    l_event_release                 l_place_url
-area_alias_type             label                   l_event_release_group           l_place_work
-area_gid_redirect           label_alias             l_event_series                  l_recording_recording
-area_type                   label_alias_type        l_event_url                     l_recording_release
-artist                      label_gid_redirect      l_event_work                    l_recording_series
-artist_alias                label_ipi               l_genre_genre                   l_recording_url
-artist_alias_type           label_isni              l_genre_instrument              l_recording_work
-artist_credit               label_type              l_genre_label                   l_release_group_release_group
-artist_credit_gid_redirect  language                l_genre_place                   l_release_group_series
-artist_credit_name          l_area_area             l_genre_release_group           l_release_group_url
-artist_gid_redirect         l_area_event            l_genre_url                     l_release_group_work
-artist_ipi                  l_area_genre            link                            l_release_release
-artist_isni                 l_area_instrument       link_attribute                  l_release_series
-artist_type                 l_area_label            link_attribute_credit           l_release_url
-cdtoc                       l_area_recording        link_attribute_text_value       l_series_series
-country_area                l_area_release          link_attribute_type             l_series_url
-editor_collection_type      l_area_series           link_creditable_attribute_type  l_series_work
-event                       l_area_url              link_text_attribute_type        l_url_work
-event_alias                 l_area_work             link_type                       l_work_work
-event_alias_type            l_artist_artist         link_type_attribute_type        medium
-event_gid_redirect          l_artist_event          l_instrument_instrument         medium_cdtoc
-event_type                  l_artist_genre          l_instrument_label              medium_format
-gender                      l_artist_instrument     l_instrument_url                medium_gid_redirect
-genre                       l_artist_label          l_label_label                   orderable_link_type
-genre_alias                 l_artist_place          l_label_place                   place
-genre_alias_type            l_artist_recording      l_label_recording               place_alias
-instrument                  l_artist_release        l_label_release                 place_alias_type
-instrument_alias            l_artist_release_group  l_label_release_group           place_gid_redirect
-instrument_alias_type       l_artist_series         l_label_series                  place_type
-instrument_gid_redirect     l_artist_url            l_label_url                     recording
-instrument_type             l_artist_work           l_label_work
-iso_3166_1                  l_event_event           l_place_place
-iso_3166_2                  l_event_label           l_place_recording
-root@1702ee20fdbf:/# [200~root@1702ee20fdbf:/# ls /media/dbdump/mbdump
-bash: [200~root@1702ee20fdbf:/#: No such file or directory
-root@1702ee20fdbf:/# alternative_release_type    iso_3166_3              l_event_place                   l_place_release
-bash: alternative_release_type: command not found
-root@1702ee20fdbf:/# area                        isrc                    l_event_recording               l_place_series
-bash: area: command not found
-root@1702ee20fdbf:/# area_alias                  iswc                    l_event_release                 l_place_url
-bash: area_alias: command not found
-root@1702ee20fdbf:/# area_alias_type             label                   l_event_release_group           l_place_work
-bash: area_alias_type: command not found
-root@1702ee20fdbf:/# area_gid_redirect           label_alias             l_event_series                  l_recording_recording
-bash: area_gid_redirect: command not found
-root@1702ee20fdbf:/# area_type                   label_alias_type        l_event_url                     l_recording_release
-bash: area_type: command not found
-root@1702ee20fdbf:/# artist                      label_gid_redirect      l_event_work                    l_recording_series
-bash: artist: command not found
-root@1702ee20fdbf:/# artist_alias                label_ipi               l_genre_genre                   l_recording_url
-bash: artist_alias: command not found
-root@1702ee20fdbf:/# artist_alias_type           label_isni              l_genre_instrument              l_recording_work
-bash: artist_alias_type: command not found
-root@1702ee20fdbf:/# artist_credit               label_type              l_genre_label                   l_release_group_release_group
-bash: artist_credit: command not found
-root@1702ee20fdbf:/# artist_credit_gid_redirect  language                l_genre_place                   l_release_group_series
-bash: artist_credit_gid_redirect: command not found
-root@1702ee20fdbf:/# artist_credit_name          l_area_area             l_genre_release_group           l_release_group_url
-bash: artist_credit_name: command not found
-root@1702ee20fdbf:/# artist_gid_redirect         l_area_event            l_genre_url                     l_release_group_work
-bash: artist_gid_redirect: command not found
-root@1702ee20fdbf:/# artist_ipi                  l_area_genre            link                            l_release_release
-bash: artist_ipi: command not found
-root@1702ee20fdbf:/# artist_isni                 l_area_instrument       link_attribute                  l_release_series
-bash: artist_isni: command not found
-root@1702ee20fdbf:/# artist_type                 l_area_label            link_attribute_credit           l_release_url
-bash: artist_type: command not found
-root@1702ee20fdbf:/# cdtoc                       l_area_recording        link_attribute_text_value       l_series_series
-bash: cdtoc: command not found
-root@1702ee20fdbf:/# country_area                l_area_release          link_attribute_type             l_series_url
-bash: country_area: command not found
-root@1702ee20fdbf:/# editor_collection_type      l_area_series           link_creditable_attribute_type  l_series_work
-bash: editor_collection_type: command not found
-root@1702ee20fdbf:/# event                       l_area_url              link_text_attribute_type        l_url_work
-bash: event: command not found
-root@1702ee20fdbf:/# event_alias                 l_area_work             link_type                       l_work_work
-bash: event_alias: command not found
-root@1702ee20fdbf:/# event_alias_type            l_artist_artist         link_type_attribute_type        medium
-bash: event_alias_type: command not found
-root@1702ee20fdbf:/# event_gid_redirect          l_artist_event          l_instrument_instrument         medium_cdtoc
-bash: event_gid_redirect: command not found
-root@1702ee20fdbf:/# event_type                  l_artist_genre          l_instrument_label              medium_format
-bash: event_type: command not found
-root@1702ee20fdbf:/# gender                      l_artist_instrument     l_instrument_url                medium_gid_redirect
-bash: gender: command not found
-root@1702ee20fdbf:/# genre                       l_artist_label          l_label_label                   orderable_link_type
-bash: genre: command not found
-root@1702ee20fdbf:/# genre_alias                 l_artist_place          l_label_place                   place
-bash: genre_alias: command not found
-root@1702ee20fdbf:/# genre_alias_type            l_artist_recording      l_label_recording               place_alias
-bash: genre_alias_type: command not found
-root@1702ee20fdbf:/# instrument                  l_artist_release        l_label_release                 place_alias_type
-bash: instrument: command not found
-root@1702ee20fdbf:/# instrument_alias            l_artist_release_group  l_label_release_group           place_gid_redirect
-bash: instrument_alias: command not found
-root@1702ee20fdbf:/# instrument_alias_type       l_artist_series         l_label_series                  place_type
-bash: instrument_alias_type: command not found
-root@1702ee20fdbf:/# instrument_gid_redirect     l_artist_url            l_label_url                     recording
-bash: instrument_gid_redirect: command not found
-root@1702ee20fdbf:/# instrument_type             l_artist_work           l_label_work
-bash: instrument_type: command not found
-root@1702ee20fdbf:/# iso_3166_1                  l_event_event           l_place_place
-bash: iso_3166_1: command not found
-root@1702ee20fdbf:/# iso_3166_2                  l_event_label           l_place_recording
-bash: iso_3166_2: command not found
-root@1702ee20fdbf:/# root@1702ee20fdbf:/# ~root@1702ee20fdbf:/# ls /media/dbdump/mbdump
-alternative_release_type    iso_3166_3              l_event_place                   l_place_release
-area                        isrc                    l_event_recording               l_place_series
-area_alias                  iswc                    l_event_release                 l_place_url
-area_alias_type             label                   l_event_release_group           l_place_work
-area_gid_redirect           label_alias             l_event_series                  l_recording_recording
-area_type                   label_alias_type        l_event_url                     l_recording_release
-artist                      label_gid_redirect      l_event_work                    l_recording_series
-artist_alias                label_ipi               l_genre_genre                   l_recording_url
-artist_alias_type           label_isni              l_genre_instrument              l_recording_work
-root@1702ee20fdbf:/#
+--2026-06-16 10:37:55--  https://data.metabrainz.org/pub/musicbrainz/data/fullexport/20260613-002047/mbdump.tar.bz2
+Resolving data.metabrainz.org (data.metabrainz.org)... 138.201.203.43
+Connecting to data.metabrainz.org (data.metabrainz.org)|138.201.203.43|:443... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 7260740543 (6.8G) [application/octet-stream]
+Saving to: ‘/media/dbdump/mbdump.tar.bz2’
+
+mbdump.tar.bz2                     6%[==>                                                        ] 453.20M  2.25MB/s    in 84s     
+
+
+Cannot write to ‘/media/dbdump/mbdump.tar.bz2’ (Success).
+time="2026-06-16T12:39:20+02:00" level=error msg="Error waiting for container: write /var/lib/desktop-containerd/daemon/io.containerd.metadata.v1.bolt/meta.db: read-only file system"
+
+
+What's next:
+    Debug this Compose error with Gordon → docker ai "help me fix this compose error"
+PS C:\Users\Natalia\Desktop\musicbrainz_db\musicbrainz-docker-master> 
