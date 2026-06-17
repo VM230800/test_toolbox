@@ -1,0 +1,19 @@
+-bash: /Users/valeriamoltschanov/Desktop/MedTec/Master/4. Semester/PjS/BP4D+: is a directory
+(base) MacBook-Air-4:~ valeriamoltschanov$ ls /Users/valeriamoltschanov/Desktop/MedTec/Master/4.\ Semester/PjS/BP4D+
+IRFeatures	Physiology	Thermal
+(base) MacBook-Air-4:~ valeriamoltschanov$ ls /Users/valeriamoltschanov/Desktop/MedTec/Master/4.\ Semester/PjS/BP4D+/IRFeatures
+F001_T1.txt
+(base) MacBook-Air-4:~ valeriamoltschanov$ ls /Users/valeriamoltschanov/Desktop/MedTec/Master/4.\ Semester/PjS/BP4D+/Physiology
+F001	F002
+(base) MacBook-Air-4:~ valeriamoltschanov$ ls /Users/valeriamoltschanov/Desktop/MedTec/Master/4.\ Semester/PjS/BP4D+/Thermal
+F001	F002
+(base) MacBook-Air-4:~ valeriamoltschanov$ ls /Users/valeriamoltschanov/Desktop/MedTec/Master/4.\ Semester/PjS/BP4D+/Physiology/F001
+T1
+(base) MacBook-Air-4:~ valeriamoltschanov$ Users/valeriamoltschanov/Desktop/MedTec/Master/4.\ Semester/PjS/BP4D+/Physiology/F001/T1
+-bash: Users/valeriamoltschanov/Desktop/MedTec/Master/4. Semester/PjS/BP4D+/Physiology/F001/T1: No such file or directory
+(base) MacBook-Air-4:~ valeriamoltschanov$ ls /Users/valeriamoltschanov/Desktop/MedTec/Master/4.\ Semester/PjS/BP4D+/Physiology/F001/T1 
+BP Dia_mmHg.txt			LA Systolic BP_mmHg.txt
+BP_mmHg.txt			Pulse Rate_BPM.txt
+EDA_microsiemens.txt		Resp_Volts.txt
+LA Mean BP_mmHg.txt		Respiration Rate_BPM.txt
+(base) MacBook-Air-4:~ valeriamoltschanov$ ls /Users/valeriamoltschanov/Desktop/MedTec/Master/4.\ Semester/PjS/BP4D+/Thermal/F001 
