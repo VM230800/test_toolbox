@@ -1,1 +1,37 @@
+# ─────────────────────────────────────────────────────────────────
+# BP4D+ Dataset – Konfiguration
+# ─────────────────────────────────────────────────────────────────
+#
+# Erwartete Verzeichnisstruktur:
+#   BP4D+/
+#   ├── Physiology/
+#   │   └── F001/
+#   │       └── T1/
+#   │           ├── Pulse Rate_BPM.txt
+#   │           ├── Respiration Rate_BPM.txt
+#   │           ├── BP_mmHg.txt
+#   │           ├── BP Dia_mmHg.txt
+#   │           ├── LA Mean BP_mmHg.txt
+#   │           ├── LA Systolic BP_mmHg.txt
+#   │           ├── microsiemens.txt
+#   │           └── Resp_Volts.txt
+#   └── Thermal/
+#       └── F001/
+#           ├── T1.wmv
+#           └── ...
+# ─────────────────────────────────────────────────────────────────
 
+# Pfad zum BP4D+ Root-Verzeichnis
+root_dir: "C:/Users/linat/OneDrive/Dokumente/Uni/Master/2. Semester/Projektseminar/BP4D+"
+
+# Subject- und Task-Filter
+# null = alle verfügbaren laden
+# Liste = nur diese laden
+subjects: null              # z.B. ["F001", "F002"] oder null
+tasks: null                 # z.B. ["T1", "T8"] oder null
+
+# Videoparameter
+fps: 25                     # Fallback-FPS [Bilder pro Sekunde]
+
+# Warmup bei BP4D+ nicht notwendig (Kamera bereits stabilisiert)
+warmup_seconds: 0
