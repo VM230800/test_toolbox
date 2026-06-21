@@ -1,27 +1,18 @@
-Resolving data.metabrainz.org (data.metabrainz.org)... 138.201.203.43
-Connecting to data.metabrainz.org (data.metabrainz.org)|138.201.203.43|:443... connected.
-HTTP request sent, awaiting response... 200 OK
-Length: 583 [application/octet-stream]
-Saving to: ‘/media/dbdump/MD5SUMS’
-
-MD5SUMS                          100%[==========================================================>]     583  --.-KB/s    in 0s      
-
-2026-06-16 10:37:55 (428 MB/s) - ‘/media/dbdump/MD5SUMS’ saved [583/583]
-
---2026-06-16 10:37:55--  https://data.metabrainz.org/pub/musicbrainz/data/fullexport/20260613-002047/mbdump.tar.bz2
-Resolving data.metabrainz.org (data.metabrainz.org)... 138.201.203.43
-Connecting to data.metabrainz.org (data.metabrainz.org)|138.201.203.43|:443... connected.
-HTTP request sent, awaiting response... 200 OK
-Length: 7260740543 (6.8G) [application/octet-stream]
-Saving to: ‘/media/dbdump/mbdump.tar.bz2’
-
-mbdump.tar.bz2                     6%[==>                                                        ] 453.20M  2.25MB/s    in 84s     
-
-
-Cannot write to ‘/media/dbdump/mbdump.tar.bz2’ (Success).
-time="2026-06-16T12:39:20+02:00" level=error msg="Error waiting for container: write /var/lib/desktop-containerd/daemon/io.containerd.metadata.v1.bolt/meta.db: read-only file system"
-
-
-What's next:
-    Debug this Compose error with Gordon → docker ai "help me fix this compose error"
-PS C:\Users\Natalia\Desktop\musicbrainz_db\musicbrainz-docker-master> docker compose run --rm musicbrainz createdb.sh       
+synchronized_data_0.npz		synchronized_data_26.npz
+synchronized_data_1.npz		synchronized_data_27.npz
+synchronized_data_10.npz	synchronized_data_28.npz
+synchronized_data_11.npz	synchronized_data_29.npz
+synchronized_data_12.npz	synchronized_data_3.npz
+synchronized_data_13.npz	synchronized_data_30.npz
+synchronized_data_14.npz	synchronized_data_31.npz
+synchronized_data_15.npz	synchronized_data_32.npz
+synchronized_data_16.npz	synchronized_data_33.npz
+synchronized_data_17.npz	synchronized_data_34.npz
+synchronized_data_19.npz	synchronized_data_35.npz
+synchronized_data_2.npz		synchronized_data_37.npz
+synchronized_data_20.npz	synchronized_data_4.npz
+synchronized_data_21.npz	synchronized_data_5.npz
+synchronized_data_22.npz	synchronized_data_6.npz
+synchronized_data_23.npz	synchronized_data_7.npz
+synchronized_data_24.npz	synchronized_data_8.npz
+synchronized_data_25.npz	synchronized_data_9.npz
