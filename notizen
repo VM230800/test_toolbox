@@ -18,7 +18,7 @@ synchronized_data_24.npz	synchronized_data_8.npz
 synchronized_data_25.npz	synchronized_data_9.npz
 
 
-
+Successfully installed numpy-2.2.6
 (base) MacBook-Air-4:test_toolbox valeriamoltschanov$ python main.py
 Traceback (most recent call last):
   File "/Users/valeriamoltschanov/Desktop/test_toolbox/main.py", line 33, in <module>
@@ -27,6 +27,4 @@ Traceback (most recent call last):
     def _detect_face_box(...):
                          ^^^
 SyntaxError: invalid syntax
-(base) MacBook-Air-4:test_toolbox valeriamoltschanov$ python --version
-Python 3.12.11
-(base) MacBook-Air-4:test_toolbox valeriamoltschanov$ 
+(base) MacBook-Air-4:test_toolbox valeriamoltschanov$
