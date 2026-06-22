@@ -22,13 +22,13 @@
 # ─────────────────────────────────────────────────────────────────
 
 # Pfad zum BP4D+ Root-Verzeichnis
-root_dir: "C:/Users/linat/OneDrive/Dokumente/Uni/Master/2. Semester/Projektseminar/BP4D+"
+root_dir: "/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2"
 
 # Subject- und Task-Filter
 # null = alle verfügbaren laden
 # Liste = nur diese laden
-subjects: null              # z.B. ["F001", "F002"] oder null
-tasks: null                 # z.B. ["T1", "T8"] oder null
+subjects: ["F001", "F002", "F003"]               # z.B. ["F001", "F002"] oder null
+tasks: ["T1", "T2"]                 # z.B. ["T1", "T8"] oder null
 
 # Videoparameter
 fps: 25                     # Fallback-FPS [Bilder pro Sekunde]
