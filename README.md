@@ -28,7 +28,7 @@ python main.py
 
 ## Project Structure
 
-```
+```text
 thermal_vital_signs/
 |
 |-- main.py                      <- Entry point
