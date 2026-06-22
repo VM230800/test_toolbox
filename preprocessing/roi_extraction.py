@@ -86,4 +86,3 @@ def compute_rois(keypoints, dataset_name="bp4d"):
             r_small,
         ),
     }
-
