@@ -23,7 +23,7 @@
 #          per Peak-Detection in der Pipeline berechnet werden.
 # ─────────────────────────────────────────────────────────────────
 
-root_dir: "C:/Users/linat/OneDrive/Dokumente/Uni/Master/2. Semester/Projektseminar/IRData"
+root_dir: "/Volumes/home/IRData"
 
 # Subject- und Recording-Filter (null = alle verfügbaren laden)
 subject_id: null        # z.B. "005" oder ["005", "006"]
