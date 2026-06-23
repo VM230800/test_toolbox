@@ -70,3 +70,44 @@ Traceback (most recent call last):
     from methods.thermal_mean import ThermalMeanMethod
 ModuleNotFoundError: No module named 'methods.thermal_mean'
 (base) MacBook-Air-4:test_toolbox valeriamoltschanov$ 
+
+
+
+
+
+(base) MacBook-Air-4:test_toolbox valeriamoltschanov$ python test_quick.py
+BP4DDataset: 1 subjects, 1 samples
+Frames: (200, 480, 726, 3), float32
+RAM: ~836 MB
+Intel MKL WARNING: Support of Intel(R) Streaming SIMD Extensions 4.2 (Intel(R) SSE4.2) enabled only processors has been deprecated. Intel oneAPI Math Kernel Library 2025.0 will require Intel(R) Advanced Vector Extensions (Intel(R) AVX) instructions.
+Traceback (most recent call last):
+  File "/Users/valeriamoltschanov/Desktop/test_toolbox/test_quick.py", line 33, in <module>
+    cropped, keypoints = process_with_yolo(
+                         ^^^^^^^^^^^^^^^^^^
+  File "/Users/valeriamoltschanov/Desktop/test_toolbox/utils/yolo_processing.py", line 161, in process_with_yolo
+    x1, y1, x2, y2 = _detect_face_box(model, frames[0], padding=padding)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/valeriamoltschanov/Desktop/test_toolbox/utils/yolo_processing.py", line 70, in _detect_face_box
+    results = model(frame, verbose=False, conf=confidence)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/Caskroom/miniforge/base/lib/python3.12/site-packages/ultralytics/engine/model.py", line 187, in __call__
+    return self.predict(source, stream, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/Caskroom/miniforge/base/lib/python3.12/site-packages/ultralytics/engine/model.py", line 557, in predict
+    return self.predictor.predict_cli(source=source) if is_cli else self.predictor(source=source, stream=stream)
+                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/Caskroom/miniforge/base/lib/python3.12/site-packages/ultralytics/engine/predictor.py", line 229, in __call__
+    return list(self.stream_inference(source, model, *args, **kwargs))  # merge list of Result into one
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/Caskroom/miniforge/base/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 35, in generator_context
+    response = gen.send(None)
+               ^^^^^^^^^^^^^^
+  File "/usr/local/Caskroom/miniforge/base/lib/python3.12/site-packages/ultralytics/engine/predictor.py", line 332, in stream_inference
+    im = self.preprocess(im0s)
+         ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/Caskroom/miniforge/base/lib/python3.12/site-packages/ultralytics/engine/predictor.py", line 169, in preprocess
+    im = torch.from_numpy(im)
+         ^^^^^^^^^^^^^^^^^^^^
+TypeError: expected np.ndarray (got numpy.ndarray)
+(base) MacBook-Air-4:test_toolbox valeriamoltschanov$ 
+
