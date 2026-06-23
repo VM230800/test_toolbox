@@ -61,3 +61,23 @@ print("FERTIG!")
 
 
 ## code getestet mit einer methode und einem parameter
+
+
+
+
+
+(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ ls /Volumes/home/IRData/005 
+synchronized_data_0.npz		synchronized_data_20.npz	synchronized_data_31.npz
+synchronized_data_1.npz		synchronized_data_21.npz	synchronized_data_32.npz
+synchronized_data_10.npz	synchronized_data_22.npz	synchronized_data_33.npz
+synchronized_data_11.npz	synchronized_data_23.npz	synchronized_data_34.npz
+synchronized_data_12.npz	synchronized_data_24.npz	synchronized_data_35.npz
+synchronized_data_13.npz	synchronized_data_25.npz	synchronized_data_37.npz
+synchronized_data_14.npz	synchronized_data_26.npz	synchronized_data_4.npz
+synchronized_data_15.npz	synchronized_data_27.npz	synchronized_data_5.npz
+synchronized_data_16.npz	synchronized_data_28.npz	synchronized_data_6.npz
+synchronized_data_17.npz	synchronized_data_29.npz	synchronized_data_7.npz
+synchronized_data_19.npz	synchronized_data_3.npz		synchronized_data_8.npz
+synchronized_data_2.npz		synchronized_data_30.npz	synchronized_data_9.npz
+(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ 
+
