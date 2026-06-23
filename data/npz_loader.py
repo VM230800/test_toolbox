@@ -128,6 +128,7 @@ class NPZDataset:
             "fps":          fps,
             "subject":      subj,
             "task":         f"rec_{rec_id}",
+            "recording_id": f"{subj}_rec_{rec_id}",
             "hr_bpm":       float("nan"),
             "rr_bpm":       float("nan"),
             "pulse_rate":   pulse_signal,
