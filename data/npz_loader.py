@@ -86,22 +86,7 @@ class NPZDataset:
         """Return the total number of recordings."""
         return len(self.samples)
 
-    def __getitem__(self, idx):
-        """
-        Load and return a single recording by index.
-
-        Returns:
-            dict with keys:
-                - frames:       np.ndarray (N, H, W), float32, temperature in °C
-                - fps:          float, computed from timestamps
-                - subject:      str, subject ID (e.g. "005")
-                - task:         str, recording name (e.g. "rec_0")
-                - hr_bpm:       float, NaN (must be computed by pipeline)
-                - rr_bpm:       float, NaN (must be computed by pipeline)
-                - pulse_rate:   np.ndarray (N,), raw pulse signal
-                - resp_rate:    np.ndarray (N,), raw respiration signal
-                - signal_type:  str, "raw" (signals need peak detection)
-        """
+   def __getitem__(self, idx):
         subj, rec_id, npz_path = self.samples[idx]
 
         data = np.load(npz_path, allow_pickle=True)
@@ -123,14 +108,20 @@ class NPZDataset:
             pulse_signal = pulse_signal[warmup_frames:]
             resp_signal = resp_signal[warmup_frames:]
 
+        # ── Compute BPM from raw signals ──                    # ← NEU
+        hr_bpm = self._compute_bpm_from_peaks(                  # ← NEU
+            pulse_signal, fps, freq_range=(0.7, 3.5))           # ← NEU
+        rr_bpm = self._compute_bpm_from_peaks(                  # ← NEU
+            resp_signal, fps, freq_range=(0.1, 0.7))            # ← NEU
+
         return {
             "frames":       frames,
             "fps":          fps,
             "subject":      subj,
             "task":         f"rec_{rec_id}",
             "recording_id": f"{subj}_rec_{rec_id}",
-            "hr_bpm":       hr_bpm,                             
-            "rr_bpm":       rr_bpm,                             
+            "hr_bpm":       hr_bpm,                             # ← GEÄNDERT
+            "rr_bpm":       rr_bpm,                             # ← GEÄNDERT
             "pulse_rate":   pulse_signal,
             "resp_rate":    resp_signal,
             "signal_type":  "raw",
