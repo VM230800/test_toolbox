@@ -1,37 +1,37 @@
 """
-Berechnet 5 ROI-Boxen aus Keypoints.
+Berechnet 5 ROI-Boxen aus YOLO-Keypoints (54 Punkte).
 Wird von ALLEN Algorithmen genutzt.
 """
 
 import numpy as np
 
-# Welcher Index = welcher Punkt (pro Datensatz)
+# Indices basierend auf yolo_keypoints.py (54-Punkt-Modell)
 ROI_CONFIGS = {
     "bp4d": {
-        "left_brow_inner":     2,
-        "right_brow_inner":   13,
-        "left_eye_outer":      4,
-        "right_eye_outer":    15,
-        "left_mouth_corner":   8,
-        "right_mouth_corner": 19,
-        "left_nose_wing":      9,
-        "right_nose_wing":    20,
-        "upper_lip_center":   24,
-        "left_brow_outer":     4,
-        "right_brow_outer":   15,
+        "left_brow_inner":     21,   # Stirnmitte links
+        "right_brow_inner":    22,   # Stirnmitte rechts
+        "left_eye_outer":      36,   # Äußerer Augenwinkel links
+        "right_eye_outer":     45,   # Äußerer Augenwinkel rechts
+        "left_mouth_corner":   48,   # Mundwinkel links
+        "right_mouth_corner":  50,   # Mundwinkel rechts
+        "left_nose_wing":      32,   # Nasenflügel links
+        "right_nose_wing":     34,   # Nasenflügel rechts
+        "upper_lip_center":    49,   # Oberlippe oben
+        "left_brow_outer":     17,   # Stirn äußerst links
+        "right_brow_outer":    26,   # Stirn äußerst rechts
     },
     "betreuer": {
-        "left_brow_inner":    21,
-        "right_brow_inner":   22,
-        "left_eye_outer":     36,
-        "right_eye_outer":    45,
-        "left_mouth_corner":  48,
-        "right_mouth_corner": 50,
-        "left_nose_wing":     31,
-        "right_nose_wing":    35,
-        "upper_lip_center":   49,
-        "left_brow_outer":    17,
-        "right_brow_outer":   26,
+        "left_brow_inner":     21,
+        "right_brow_inner":    22,
+        "left_eye_outer":      36,
+        "right_eye_outer":     45,
+        "left_mouth_corner":   48,
+        "right_mouth_corner":  50,
+        "left_nose_wing":      32,
+        "right_nose_wing":     34,
+        "upper_lip_center":    49,
+        "left_brow_outer":     17,
+        "right_brow_outer":    26,
     },
 }
 
@@ -40,7 +40,7 @@ def compute_rois(keypoints, dataset_name="bp4d"):
     """Berechnet 5 ROI-Boxen für einen Frame.
     
     Args:
-        keypoints: (28, 2) Array – direkt vom Loader
+        keypoints: (54, 2) Array – vom YOLO-Modell
         dataset_name: "bp4d" oder "betreuer"
     
     Returns:
