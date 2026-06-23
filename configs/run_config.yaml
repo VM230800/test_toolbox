@@ -26,22 +26,29 @@ methods:
       - "left_cheek"
       - "right_cheek"
 
-  nasal_breathing:
+  ica:
     enabled: true
-    target: "rr"
+    target: "both"
+    n_components: null
     rois:
+      - "forehead"
+      - "left_cheek"
+      - "right_cheek"
       - "nose"
       - "philtrum"
 
-  vascular:
+  garbey:
     enabled: true
-    target: "hr"
-    rois:
-      - "forehead"
-      - "nose"
-      - "left_cheek"
-      - "right_cheek"
-      - "philtrum"
+    target: "both"
+    line_points: 10
+    line_width: 3
+    lines:
+      hr:
+        p1: 0
+        p2: 2
+      rr:
+        p1: 48
+        p2: 53
 
 # ── Signalverarbeitung ──
 signal:
