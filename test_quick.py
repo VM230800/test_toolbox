@@ -102,3 +102,47 @@ print(f"  {'Thermal Mean':<15} {r1['hr_bpm']:>7.1f} {gt_hr:>8.1f} {abs(r1['hr_bp
 print(f"  {'ICA':<15} {r2['hr_bpm']:>7.1f} {gt_hr:>8.1f} {abs(r2['hr_bpm']-gt_hr):>7.1f} {r2['rr_bpm']:>8.1f} {gt_rr:>8.1f}")
 print(f"  {'Garbey':<15} {r3['hr_bpm']:>7.1f} {gt_hr:>8.1f} {abs(r3['hr_bpm']-gt_hr):>7.1f} {r3['rr_bpm']:>8.1f} {gt_rr:>8.1f}")
 print(f"\nFERTIG!")
+
+
+
+
+
+
+
+
+(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ python test_quick.py
+BP4DDataset: 1 subjects, 1 samples
+Frames: (100, 480, 726, 3), float32
+RAM: ~418 MB
+Dauer: 4.0s bei 25.0 FPS
+[W NNPACK.cpp:64] Could not initialize NNPACK! Reason: Unsupported hardware.
+YOLO: 100/100 frames with keypoints
+
+Ground Truth: HR=95.9 BPM, RR=16.5 BPM
+──────────────────────────────────────────────────
+
+1. Thermal Mean:
+   HR: 75.0 BPM (GT: 95.9, Error: 20.9)
+   RR: nan BPM (GT: 16.5)
+
+2. ICA:
+/usr/local/Caskroom/miniforge/base/envs/toolbox/lib/python3.12/site-packages/sklearn/decomposition/_fastica.py:132: ConvergenceWarning: FastICA did not converge. Consider increasing tolerance or the maximum number of iterations.
+  warnings.warn(
+   HR: 58.6 BPM (GT: 95.9, Error: 37.3)
+   RR: 11.7 BPM (GT: 16.5)
+
+3. Garbey:
+   HR: 82.5 BPM (GT: 95.9, Error: 13.4)
+   RR: 15.0 BPM (GT: 16.5)
+
+══════════════════════════════════════════════════
+  ZUSAMMENFASSUNG
+══════════════════════════════════════════════════
+  Methode           HR est    HR GT    Error   RR est    RR GT
+  ──────────────────────────────────────────────────────────
+  Thermal Mean       75.0     95.9    20.9      nan     16.5
+  ICA                58.6     95.9    37.3     11.7     16.5
+  Garbey             82.5     95.9    13.4     15.0     16.5
+
+FERTIG!
+(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ 
