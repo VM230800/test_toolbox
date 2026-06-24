@@ -130,6 +130,7 @@ class NPZDataset:
     def _compute_fps(self, timestamps):
         """
         Compute FPS from timestamp array.
+        Handles timestamps in both seconds and milliseconds.
         """
         if len(timestamps) < 2:
             return self.default_fps
@@ -140,8 +141,13 @@ class NPZDataset:
         if median_diff <= 0:
             return self.default_fps
 
-        return 1.0 / median_diff
+        # If median_diff > 1, timestamps are in milliseconds
+        if median_diff > 1.0:
+            return 1000.0 / median_diff
+        else:
+            return 1.0 / median_diff
 
+    
     @staticmethod
     def _compute_bpm_from_peaks(signal, fps, freq_range=(0.7, 3.5)):
         """
