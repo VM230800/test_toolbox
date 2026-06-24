@@ -68,12 +68,9 @@ class NPZDataset:
                 key=self._sort_key,
             )
             for npz_path in npz_files:
-                # Extract recording ID from filename
-                # "synchronized_data_5.npz" → 5
                 fname = os.path.splitext(os.path.basename(npz_path))[0]
                 rec_id = int(fname.split("_")[-1])
 
-                # Skip recordings not in the requested list
                 if recordings is not None and rec_id not in recordings:
                     continue
 
@@ -86,7 +83,10 @@ class NPZDataset:
         """Return the total number of recordings."""
         return len(self.samples)
 
-   def __getitem__(self, idx):
+    def __getitem__(self, idx):
+        """
+        Load and return a single recording by index.
+        """
         subj, rec_id, npz_path = self.samples[idx]
 
         data = np.load(npz_path, allow_pickle=True)
@@ -108,11 +108,11 @@ class NPZDataset:
             pulse_signal = pulse_signal[warmup_frames:]
             resp_signal = resp_signal[warmup_frames:]
 
-        # ── Compute BPM from raw signals ──                    # ← NEU
-        hr_bpm = self._compute_bpm_from_peaks(                  # ← NEU
-            pulse_signal, fps, freq_range=(0.7, 3.5))           # ← NEU
-        rr_bpm = self._compute_bpm_from_peaks(                  # ← NEU
-            resp_signal, fps, freq_range=(0.1, 0.7))            # ← NEU
+        # ── Compute BPM from raw signals ──
+        hr_bpm = self._compute_bpm_from_peaks(
+            pulse_signal, fps, freq_range=(0.7, 3.5))
+        rr_bpm = self._compute_bpm_from_peaks(
+            resp_signal, fps, freq_range=(0.1, 0.7))
 
         return {
             "frames":       frames,
@@ -120,8 +120,8 @@ class NPZDataset:
             "subject":      subj,
             "task":         f"rec_{rec_id}",
             "recording_id": f"{subj}_rec_{rec_id}",
-            "hr_bpm":       hr_bpm,                             # ← GEÄNDERT
-            "rr_bpm":       rr_bpm,                             # ← GEÄNDERT
+            "hr_bpm":       hr_bpm,
+            "rr_bpm":       rr_bpm,
             "pulse_rate":   pulse_signal,
             "resp_rate":    resp_signal,
             "signal_type":  "raw",
@@ -130,15 +130,6 @@ class NPZDataset:
     def _compute_fps(self, timestamps):
         """
         Compute FPS from timestamp array.
-
-        Takes the median of consecutive timestamp differences
-        to be robust against occasional timing jitter.
-
-        Args:
-            timestamps: np.ndarray (N,) of timestamps
-
-        Returns:
-            float: computed FPS, or self.default_fps as fallback
         """
         if len(timestamps) < 2:
             return self.default_fps
@@ -151,8 +142,7 @@ class NPZDataset:
 
         return 1.0 / median_diff
 
-
-@staticmethod
+    @staticmethod
     def _compute_bpm_from_peaks(signal, fps, freq_range=(0.7, 3.5)):
         """
         Compute BPM from a raw physiological signal using FFT.
@@ -198,6 +188,7 @@ class NPZDataset:
 
         except Exception:
             return float("nan")
+
     @staticmethod
     def _sort_key(path):
         """
