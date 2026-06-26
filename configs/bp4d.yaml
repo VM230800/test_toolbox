@@ -1,8 +1,8 @@
 # ─────────────────────────────────────────────────────────────────
-# BP4D+ Dataset – Konfiguration
+# BP4D+ Dataset – Configurations
 # ─────────────────────────────────────────────────────────────────
 #
-# Erwartete Verzeichnisstruktur:
+# Expected directory structure:
 #   BP4D+/
 #   ├── Physiology/
 #   │   └── F001/
@@ -21,17 +21,17 @@
 #           └── ...
 # ─────────────────────────────────────────────────────────────────
 
-# Pfad zum BP4D+ Root-Verzeichnis
+# Path to BP4D+ directory
 root_dir: "/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2"
 
-# Subject- und Task-Filter
-# null = alle verfügbaren laden
-# Liste = nur diese laden
-subjects: ["F001", "F002", "F003"]               # z.B. ["F001", "F002"] oder null
-tasks: ["T1", "T2"]                 # z.B. ["T1", "T8"] oder null
+# Subject and task filters
+# null = load all available
+# List = load only specified entries
+subjects: ["F001", "F002", "F003"]  # e.g. ["F001", "F002"] or null
+tasks: ["T1", "T2"]                 # e.g. ["T1", "T8"] or null
 
-# Videoparameter
-fps: 25                     # Fallback-FPS [Bilder pro Sekunde]
+# Video parameters
+fps: 25                     # Fallback-FPS [frames per second]
 
-# Warmup bei BP4D+ nicht notwendig (Kamera bereits stabilisiert)
+# no warm-up required for BP4D+ as camera is already stabilized
 warmup_seconds: 0
