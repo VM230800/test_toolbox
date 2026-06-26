@@ -1,5 +1,6 @@
-echo "=== Pulse Rate ==="
-head -5 "/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Physiology/F001/T1/Pulse Rate_BPM.txt"
+(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ echo "=== Pulse Rate ==="
+=== Pulse Rate ===
+(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ head -5 "/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Physiology/F001/T1/Pulse Rate_BPM.txt"
 wc -l "/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Physiology/F001/T1/Pulse Rate_BPM.txt"
 
 echo "=== Respiration Rate ==="
@@ -16,9 +17,53 @@ wc -l "/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Physiology/F001/T1/LA Mean 
 
 echo "=== LA Systolic BP ==="
 head -5 "/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Physiology/F001/T1/LA Systolic BP_mmHg.txt"
-wc -l "/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Physiology/F001/T1/LA Systolic BP_mmHg.txt"
-
-
-
-
-
+wc -l "/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Physiology/F001/T1/LA Systolic BP_mmHg.txt"87.9765
+87.9765
+87.9765
+87.9765
+87.9765
+(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ wc -l "/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Physiology/F001/T1/Pulse Rate_BPM.txt"
+   64597 /Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Physiology/F001/T1/Pulse Rate_BPM.txt
+(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ 
+(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ echo "=== Respiration Rate ==="
+=== Respiration Rate ===
+(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ head -5 "/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Physiology/F001/T1/Respiration Rate_BPM.txt"
+19.1266
+19.1266
+19.1266
+19.1266
+19.1266
+(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ wc -l "/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Physiology/F001/T1/Respiration Rate_BPM.txt"
+   64597 /Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Physiology/F001/T1/Respiration Rate_BPM.txt
+(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ 
+(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ echo "=== Resp Volts ==="
+=== Resp Volts ===
+(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ head -5 "/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Physiology/F001/T1/Resp_Volts.txt"
+-4.06738
+-4.06006
+-4.05334
+-4.04327
+-4.03778
+(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ wc -l "/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Physiology/F001/T1/Resp_Volts.txt"
+   64597 /Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Physiology/F001/T1/Resp_Volts.txt
+(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ 
+(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ echo "=== LA Mean BP ==="
+=== LA Mean BP ===
+(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ head -5 "/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Physiology/F001/T1/LA Mean BP_mmHg.txt"
+99.2636
+99.2636
+99.2636
+99.2636
+99.2636
+(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ wc -l "/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Physiology/F001/T1/LA Mean BP_mmHg.txt"
+   64597 /Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Physiology/F001/T1/LA Mean BP_mmHg.txt
+(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ 
+(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ echo "=== LA Systolic BP ==="
+=== LA Systolic BP ===
+(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ head -5 "/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Physiology/F001/T1/LA Systolic BP_mmHg.txt"
+114.433
+114.433
+114.433
+114.433
+114.433
+(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ wc -l "/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Physiology/F001/T1/LA Systolic BP_mmHg.txt"
