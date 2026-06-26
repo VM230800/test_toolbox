@@ -31,15 +31,39 @@ FERTIG!
 
 
 
-python -c "
-from data.bp4d_loader import BP4DDataset
+> "
+BP4DDataset: 1 recordings found
+Samples gefunden: 1
+Samples: [('F001', 'T1', '/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Thermal/F001/T1.wmv')]
+(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ head -30 data/bp4d_loader.py
+"""
+data/bp4d_loader.py
+===================
+BP4D+ dataset loader. Inherits from BaseLoader.
+Only implements BP4D-specific logic.
+"""
 
-dataset = BP4DDataset(
-    root_dir='/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2',
-    subjects=['F001'],
-    tasks=['T1'],
-    fps=25,
-)
-print(f'Samples gefunden: {len(dataset)}')
-print(f'Samples: {dataset.samples}')
-"
+import os
+import glob
+import cv2
+import numpy as np
+from data.base_loader import BaseLoader
+
+
+class BP4DDataset(BaseLoader):
+
+    def __init__(self, root_dir, subjects=None, tasks=None,
+                 warmup_seconds=0, fps=25.0,
+                 cache_dir="cache", force_preprocess=False):
+        self.thermal_dir = os.path.join(root_dir, "Thermal")
+        self.physio_dir = os.path.join(root_dir, "Physiology")
+        self.tasks = tasks
+
+        super().__init__(
+            root_dir=root_dir,
+            subjects=subjects,
+            warmup_seconds=warmup_seconds,
+            fps=fps,
+            cache_dir=cache_dir,
+            force_preprocess=force_preprocess,
+(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ 
