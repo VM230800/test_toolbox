@@ -1,34 +1,22 @@
-(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ python test_quick.py
-BP4DDataset: 1 recordings found
+echo "=== Pulse Rate ==="
+head -5 "/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Physiology/F001/T1/Pulse Rate_BPM.txt"
+wc -l "/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Physiology/F001/T1/Pulse Rate_BPM.txt"
 
-── Test get_metadata() ──
-Recording: F001_T1
-FPS: 25.0
-Frames: 1612
-HR GT: 95.9 BPM
-RR GT: 16.5 BPM
+echo "=== Respiration Rate ==="
+head -5 "/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Physiology/F001/T1/Respiration Rate_BPM.txt"
+wc -l "/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Physiology/F001/T1/Respiration Rate_BPM.txt"
 
-Frames: (100, 480, 726, 3), float32
-RAM: ~418 MB
-Dauer: 4.0s bei 25.0 FPS
+echo "=== Resp Volts ==="
+head -5 "/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Physiology/F001/T1/Resp_Volts.txt"
+wc -l "/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Physiology/F001/T1/Resp_Volts.txt"
 
-Ground Truth: HR=95.9 BPM, RR=16.5 BPM
-  Pulse Rate Signal: 64597 Werte
-  Resp Rate Signal:  64597 Werte
-[W NNPACK.cpp:64] Could not initialize NNPACK! Reason: Unsupported hardware.
-YOLO: 100/100 frames with keypoints
-  Saved: results/F001_T1/F001_T1_roi_overlay.png
+echo "=== LA Mean BP ==="
+head -5 "/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Physiology/F001/T1/LA Mean BP_mmHg.txt"
+wc -l "/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Physiology/F001/T1/LA Mean BP_mmHg.txt"
 
-1. Thermal Mean:
-Traceback (most recent call last):
-  File "/Users/valeriamoltschanov/Desktop/test_toolbox/test_quick.py", line 95, in <module>
-    r1 = tm.estimate(cropped, rois_per_frame, fps)
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/valeriamoltschanov/Desktop/test_toolbox/methods/thermal_mean.py", line 89, in estimate
-    bp = self.signal_config[f"{self.target}_bandpass"]
-         ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
-KeyError: 'both_bandpass'
-(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ 
+echo "=== LA Systolic BP ==="
+head -5 "/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Physiology/F001/T1/LA Systolic BP_mmHg.txt"
+wc -l "/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Physiology/F001/T1/LA Systolic BP_mmHg.txt"
 
 
 
