@@ -345,3 +345,162 @@ def save_roi_video(frames, keypoints, fps, recording_id,
 
     out.release()
     print(f"  Saved: {path} ({n} frames, {n/fps:.1f}s)")
+
+
+# ══════════════════════════════════════════════════════════
+# 5. Ground Truth Physiology Plot
+# ══════════════════════════════════════════════════════════
+
+def save_gt_physiology_plot(physio_signals, predicted_signal,
+                            fps_video, fps_physio,
+                            predicted_bpm, gt_bpm,
+                            signal_type, method_name,
+                            recording_id, save_dir):
+    """
+    Plot raw ground truth physiology signal alongside
+    our predicted thermal signal.
+
+    Shows 3 subplots:
+        1. Raw physiology waveform (BP_mmHg or Resp_Volts)
+        2. Our predicted thermal signal (bandpass filtered)
+        3. Both GT rate + predicted rate over time
+
+    Args:
+        physio_signals: dict with keys like:
+            - "waveform":  np.ndarray, raw signal (BP or Resp_Volts)
+            - "rate_bpm":  np.ndarray, BPM over time
+        predicted_signal: np.ndarray, our bandpass-filtered signal
+        fps_video:      float, video sampling rate (e.g. 25)
+        fps_physio:     float, physiology sampling rate (e.g. 1000)
+        predicted_bpm:  float, our single BPM estimate
+        gt_bpm:         float, mean ground truth BPM
+        signal_type:    str, "hr" or "rr"
+        method_name:    str, e.g. "thermal_mean"
+        recording_id:   str, e.g. "F001_T1"
+        save_dir:       str, output folder
+    """
+    fig, axes = plt.subplots(3, 1, figsize=(14, 10))
+
+    type_label = "Heart Rate" if signal_type == "hr" \
+        else "Respiration"
+    wave_label = "Blood Pressure [mmHg]" if signal_type == "hr" \
+        else "Respiration [Volts]"
+    error = abs(predicted_bpm - gt_bpm)
+
+    fig.suptitle(
+        f"{type_label} – Ground Truth vs Predicted\n"
+        f"{recording_id}  |  {method_name}  |  "
+        f"Predicted: {predicted_bpm:.1f} BPM  |  "
+        f"GT: {gt_bpm:.1f} BPM  |  "
+        f"Error: {error:.1f} BPM",
+        fontsize=13, fontweight="bold",
+    )
+
+    waveform = physio_signals["waveform"]
+    rate_bpm = physio_signals["rate_bpm"]
+
+    # ── Match time range to video duration ──
+    video_duration = len(predicted_signal) / fps_video
+    n_physio = int(video_duration * fps_physio)
+    n_physio = min(n_physio, len(waveform))
+
+    waveform_clip = waveform[:n_physio]
+    rate_clip = rate_bpm[:min(n_physio, len(rate_bpm))]
+
+    time_physio = np.arange(len(waveform_clip)) / fps_physio
+    time_rate = np.arange(len(rate_clip)) / fps_physio
+    time_video = np.arange(len(predicted_signal)) / fps_video
+
+    # ────────────────────────────────────
+    # Subplot 1: Raw Physiology Waveform
+    # ────────────────────────────────────
+    ax1 = axes[0]
+    ax1.plot(time_physio, waveform_clip, color="red",
+             linewidth=0.4, alpha=0.8)
+    ax1.set_ylabel(wave_label)
+    ax1.set_title(
+        f"Ground Truth Waveform "
+        f"({fps_physio:.0f} Hz sampling)")
+    ax1.grid(True, alpha=0.3)
+
+    # Show zoomed view in first 5 seconds
+    if video_duration > 5:
+        ax1.set_xlim(0, min(5, video_duration))
+        ax1.text(
+            0.98, 0.95,
+            f"Showing first 5s of {video_duration:.1f}s",
+            transform=ax1.transAxes,
+            fontsize=9, ha="right", va="top",
+            bbox=dict(boxstyle="round",
+                      facecolor="wheat", alpha=0.8),
+        )
+
+    # ────────────────────────────────────
+    # Subplot 2: Our Predicted Signal
+    # ────────────────────────────────────
+    ax2 = axes[1]
+
+    # Normalise for display
+    pred_norm = predicted_signal - np.mean(predicted_signal)
+    mx = np.max(np.abs(pred_norm))
+    if mx > 0:
+        pred_norm = pred_norm / mx
+
+    ax2.plot(time_video, pred_norm, color="blue",
+             linewidth=0.8, alpha=0.8)
+    ax2.set_ylabel("Normalised Amplitude")
+    ax2.set_title(
+        f"Predicted Signal – {method_name} "
+        f"({fps_video:.0f} Hz sampling)")
+    ax2.grid(True, alpha=0.3)
+
+    if video_duration > 5:
+        ax2.set_xlim(0, min(5, video_duration))
+
+    # ────────────────────────────────────
+    # Subplot 3: BPM over Time
+    # ────────────────────────────────────
+    ax3 = axes[2]
+
+    ax3.plot(time_rate, rate_clip, color="red",
+             linewidth=0.8, alpha=0.7,
+             label=f"GT Rate (mean: {gt_bpm:.1f} BPM)")
+
+    # Our prediction as horizontal line
+    ax3.axhline(y=predicted_bpm, color="blue",
+                linestyle="--", linewidth=1.5,
+                label=f"Predicted: {predicted_bpm:.1f} BPM")
+
+    ax3.set_xlabel("Time [s]")
+    ax3.set_ylabel("Rate [BPM]")
+    ax3.set_title(f"{type_label} Rate over Time")
+    ax3.legend(loc="upper right")
+    ax3.grid(True, alpha=0.3)
+
+    # Error badge
+    ax3.text(
+        0.02, 0.95,
+        f"Error: {error:.1f} BPM",
+        transform=ax3.transAxes,
+        fontsize=12, fontweight="bold",
+        color=("green" if error < 5
+               else "orange" if error < 10
+               else "red"),
+        verticalalignment="top",
+        bbox=dict(boxstyle="round",
+                  facecolor="white", alpha=0.8),
+    )
+
+    # ── Save ──
+    plt.tight_layout()
+
+    rec_dir = os.path.join(save_dir, recording_id)
+    os.makedirs(rec_dir, exist_ok=True)
+
+    filename = (f"{recording_id}_{method_name}_"
+                f"{signal_type}_physiology.png")
+    filepath = os.path.join(rec_dir, filename)
+    fig.savefig(filepath, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+    print(f"    Saved: {filepath}")
