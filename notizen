@@ -28,3 +28,19 @@ HR: 75.0 BPM
 Ground Truth HR: 95.9 BPM
 FERTIG!
 (toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$
+
+
+
+(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ python test_quick.py
+BP4DDataset: 0 recordings found
+
+── Test get_metadata() ──
+Traceback (most recent call last):
+  File "/Users/valeriamoltschanov/Desktop/test_toolbox/test_quick.py", line 34, in <module>
+    meta = dataset.get_metadata(0)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/valeriamoltschanov/Desktop/test_toolbox/data/base_loader.py", line 170, in get_metadata
+    sample_info = self.samples[idx]
+                  ~~~~~~~~~~~~^^^^^
+IndexError: list index out of range
+(toolbox) MacBook-Air-4:test_toolbox va
