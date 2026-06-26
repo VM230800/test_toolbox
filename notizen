@@ -53,20 +53,30 @@ FERTIG!
 #       └── F001/
 #           ├── T1.wmv
 #           └── ...
-# ─────────────────────────────────────────────────────────────────
 
-# Path to BP4D+ directory
-root_dir: "/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2"
 
-# Subject and task filters
-# null = load all available
-# List = load only specified entries
-subjects: ["F001", "F002", "F003"] # e.g. ["F001", "F002"] or null
-tasks: ["T1", "T2"]                # e.g. ["T1", "T8"] or null
 
-# Video parameters
-fps: 25 # Fallback-FPS [frames per second]
+python -c "
+import yaml
 
-# no warm-up required for BP4D+ as camera is already stabilized
-warmup_seconds: 0(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ 
+with open('configs/bp4d.yaml') as f:
+    ds_config = yaml.safe_load(f)
+
+print('root_dir:', repr(ds_config['root_dir']))
+
+import os
+thermal = os.path.join(ds_config['root_dir'], 'Thermal')
+physio = os.path.join(ds_config['root_dir'], 'Physiology')
+print('Thermal exists:', os.path.isdir(thermal))
+print('Physiology exists:', os.path.isdir(physio))
+
+from data.bp4d_loader import BP4DDataset
+dataset = BP4DDataset(
+    root_dir=ds_config['root_dir'],
+    subjects=['F001'],
+    tasks=['T1'],
+    fps=25,
+)
+print(f'Samples: {len(dataset)}')
+"
 
