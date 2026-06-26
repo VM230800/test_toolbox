@@ -56,12 +56,12 @@ class ThermalMeanMethod:
         """
         Args:
             method_config: dict from run_config.yaml, e.g.
-                {"enabled": True, "target": "hr",
+                {"enabled": True, "target": "both",
                  "rois": ["forehead", "left_cheek", "right_cheek"]}
             signal_config: dict from run_config.yaml "signal" section
         """
         self.rois = method_config["rois"]
-        self.target = method_config.get("target", "hr")
+        self.target = method_config.get("target", "both")
         self.signal_config = signal_config
 
     def estimate(self, frames, rois_per_frame, fps):
@@ -75,49 +75,70 @@ class ThermalMeanMethod:
 
         Returns:
             dict with keys:
-                - hr_bpm:     float (or NaN)
-                - rr_bpm:     float (or NaN)
+                - hr_bpm:      float (or NaN)
+                - rr_bpm:      float (or NaN)
                 - roi_results: dict, per-ROI BPM estimates
-                - method:     str, "thermal_mean"
+                - method:      str, "thermal_mean"
         """
         # ── 1. Extract temperature signals per ROI ──
         roi_signals = extract_all_roi_signals(
             frames, rois_per_frame, self.rois
         )
 
-        # ── 2. Estimate frequency per ROI ──
-        bp = self.signal_config[f"{self.target}_bandpass"]
         method = self.signal_config.get("peak_method", "fft")
         fft_window = self.signal_config.get("fft_window", 512)
 
-        roi_results = {}
-        valid_bpms = []
+        # ── 2. Estimate HR ──
+        hr_bpm = float("nan")
+        hr_roi_results = {}
 
-        for roi_name, signal in roi_signals.items():
-            bpm = self._estimate_single_roi(
-                signal, fps, bp, method, fft_window
-            )
-            roi_results[roi_name] = bpm
-            if not np.isnan(bpm):
-                valid_bpms.append(bpm)
+        if self.target in ("hr", "both"):
+            bp = self.signal_config["hr_bandpass"]
+            valid_bpms = []
 
-        # ── 3. Combine ROI estimates ──
-        if valid_bpms:
-            combined_bpm = float(np.median(valid_bpms))
-        else:
-            combined_bpm = float("nan")
+            for roi_name, signal in roi_signals.items():
+                bpm = self._estimate_single_roi(
+                    signal, fps, bp, method, fft_window)
+                hr_roi_results[roi_name] = bpm
+                if not np.isnan(bpm):
+                    valid_bpms.append(bpm)
+
+            if valid_bpms:
+                hr_bpm = float(np.median(valid_bpms))
+
+        # ── 3. Estimate RR ──
+        rr_bpm = float("nan")
+        rr_roi_results = {}
+
+        if self.target in ("rr", "both"):
+            bp = self.signal_config["rr_bandpass"]
+            valid_bpms = []
+
+            for roi_name, signal in roi_signals.items():
+                bpm = self._estimate_single_roi(
+                    signal, fps, bp, method, fft_window)
+                rr_roi_results[roi_name] = bpm
+                if not np.isnan(bpm):
+                    valid_bpms.append(bpm)
+
+            if valid_bpms:
+                rr_bpm = float(np.median(valid_bpms))
 
         # ── 4. Build result ──
         result = {
-            "hr_bpm":      combined_bpm if self.target in ("hr", "both") else float("nan"),
-            "rr_bpm":      combined_bpm if self.target in ("rr", "both") else float("nan"),
-            "roi_results": roi_results,
+            "hr_bpm":      hr_bpm,
+            "rr_bpm":      rr_bpm,
+            "roi_results": {
+                "hr": hr_roi_results,
+                "rr": rr_roi_results,
+            },
             "method":      "thermal_mean",
         }
 
         return result
 
-    def _estimate_single_roi(self, signal, fps, bp_config, method, fft_window):
+    def _estimate_single_roi(self, signal, fps, bp_config,
+                             method, fft_window):
         """
         Estimate BPM from a single ROI signal.
 
@@ -131,18 +152,15 @@ class ThermalMeanMethod:
         Returns:
             float, BPM or NaN
         """
-        # Interpolate NaN gaps
         signal_clean = interpolate_nan(signal)
 
         if np.isnan(signal_clean).all():
             return float("nan")
 
-        # Check minimum length for filter
         min_length = bp_config["order"] * 3 + 1
         if len(signal_clean) < min_length:
             return float("nan")
 
-        # Bandpass filter
         try:
             filtered = bandpass_filter(
                 signal_clean, fps,
@@ -153,12 +171,14 @@ class ThermalMeanMethod:
         except ValueError:
             return float("nan")
 
-        # Frequency estimation
         if method == "fft":
-            freq_hz = estimate_frequency_fft(filtered, fps, fft_window)
+            freq_hz = estimate_frequency_fft(
+                filtered, fps, fft_window)
         elif method == "peak_detection":
-            freq_hz = estimate_frequency_peaks(filtered, fps)
+            freq_hz = estimate_frequency_peaks(
+                filtered, fps)
         else:
-            freq_hz = estimate_frequency_fft(filtered, fps, fft_window)
+            freq_hz = estimate_frequency_fft(
+                filtered, fps, fft_window)
 
         return freq_hz * 60.0
