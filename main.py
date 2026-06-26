@@ -48,6 +48,7 @@ from evaluation.results_table import ResultsTable
 from utils.visualization import (
     save_roi_overlay,
     save_signal_plot,
+    save_signal_comparison,
     save_roi_video,
 )
 from preprocessing.signal_extraction import (
