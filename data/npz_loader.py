@@ -1,286 +1,179 @@
 """
 data/npz_loader.py
 ==================
-Dataloader for the NPZ thermal dataset (Betreuer).
-Handles thermal frames (real temperature in °C) and raw physiological
-signals (pulse and respiration) from .npz files.
-
-Dataset structure expected:
-    IRData/
-    ├── 005/
-    │   ├── synchronized_data_0.npz
-    │   ├── synchronized_data_1.npz
-    │   └── ...
-    ├── 006/
-    │   └── ...
-    └── 027/
-        └── ...
-
-Each .npz file contains:
-    array1: (N, 768, 1024) float32  – thermal frames in °C
-    array2: (N,) float64            – timestamps (for FPS calculation)
-    array4: (N,) float64            – raw pulse signal
-    array5: (N,) float64            – raw respiration signal
+NPZ thermal dataset loader. Inherits from BaseLoader.
+Only implements NPZ-specific logic.
 """
 
 import os
 import glob
 import numpy as np
+from data.base_loader import BaseLoader
 
 
-class NPZDataset:
+class NPZDataset(BaseLoader):
 
     def __init__(self, root_dir, subjects=None, recordings=None,
-                 warmup_seconds=0, fps=30.0):
-        """
-        Initialize the NPZ dataset loader.
+                 warmup_seconds=0, fps=30.0,
+                 cache_dir="cache", force_preprocess=False):
+        self.recordings_filter = recordings
 
-        Args:
-            root_dir:        Path to the IRData root folder.
-            subjects:        List of subject IDs, e.g. ["005", "007"].
-                             If None, all available subjects are loaded.
-            recordings:      List of recording IDs, e.g. [0, 1, 5].
-                             If None, all available recordings are loaded.
-            warmup_seconds:  Number of seconds to skip at the beginning
-                             of each recording (camera warmup period).
-            fps:             Fallback framerate if timestamps cannot
-                             be used to compute the actual FPS.
-        """
-        self.root_dir = root_dir
-        self.warmup_seconds = warmup_seconds
-        self.default_fps = fps
+        super().__init__(
+            root_dir=root_dir,
+            subjects=subjects,
+            warmup_seconds=warmup_seconds,
+            fps=fps,
+            cache_dir=cache_dir,
+            force_preprocess=force_preprocess,
+        )
 
-        # ── Discover subjects ──
+    # ─────────────────────────────────────────────────────
+    # NPZ-specific implementations
+    # ─────────────────────────────────────────────────────
+
+    def _discover_samples(self, subjects):
+        """Find all (subject, rec_id, path) combinations."""
         if subjects is None:
-            self.subjects = sorted([
-                d for d in os.listdir(root_dir)
-                if os.path.isdir(os.path.join(root_dir, d))
+            subjects = sorted([
+                d for d in os.listdir(self.root_dir)
+                if os.path.isdir(os.path.join(self.root_dir, d))
             ])
-        else:
-            self.subjects = subjects
 
-        # ── Collect all valid (subject, recording_id, path) tuples ──
-        self.samples = []
-        for subj in self.subjects:
-            subj_dir = os.path.join(root_dir, subj)
+        samples = []
+        for subj in subjects:
+            subj_dir = os.path.join(self.root_dir, subj)
             npz_files = sorted(
-                glob.glob(os.path.join(subj_dir, "synchronized_data_*.npz")),
+                glob.glob(os.path.join(
+                    subj_dir, "synchronized_data_*.npz")),
                 key=self._sort_key,
             )
             for npz_path in npz_files:
-                fname = os.path.splitext(os.path.basename(npz_path))[0]
+                fname = os.path.splitext(
+                    os.path.basename(npz_path))[0]
                 rec_id = int(fname.split("_")[-1])
 
-                if recordings is not None and rec_id not in recordings:
+                if (self.recordings_filter is not None
+                        and rec_id not in self.recordings_filter):
                     continue
 
-                self.samples.append((subj, rec_id, npz_path))
+                samples.append((subj, rec_id, npz_path))
 
-        print(f"NPZDataset: {len(self.subjects)} subjects, "
-              f"{len(self.samples)} recordings")
+        return samples
 
-    def __len__(self):
-        """Return the total number of recordings."""
-        return len(self.samples)
-
-    def __getitem__(self, idx):
-        """
-        Load and return a single recording by index.
-        Loads ALL frames into RAM – use iter_frames() for
-        memory-friendly processing.
-        """
-        subj, rec_id, npz_path = self.samples[idx]
+    def _load_frames(self, sample_info):
+        """Load all frames from NPZ file."""
+        subj, rec_id, npz_path = sample_info
 
         data = np.load(npz_path, allow_pickle=True)
+        return data["array1"].astype(np.float32)
 
-        # ── Frames ──
-        frames = data["array1"].astype(np.float32)
-
-        # ── FPS from timestamps ──
-        fps = self._compute_fps(data["array2"])
-
-        # ── Raw physiology signals ──
-        pulse_signal = data["array4"].astype(np.float64)
-        resp_signal = data["array5"].astype(np.float64)
-
-        # ── Remove warmup ──
-        warmup_frames = int(self.warmup_seconds * fps)
-        if warmup_frames > 0 and warmup_frames < len(frames):
-            frames = frames[warmup_frames:]
-            pulse_signal = pulse_signal[warmup_frames:]
-            resp_signal = resp_signal[warmup_frames:]
-
-        # ── Compute BPM from raw signals ──
-        hr_bpm = self._compute_bpm_from_peaks(
-            pulse_signal, fps, freq_range=(0.7, 3.5))
-        rr_bpm = self._compute_bpm_from_peaks(
-            resp_signal, fps, freq_range=(0.1, 0.7))
-
-        return {
-            "frames":       frames,
-            "fps":          fps,
-            "subject":      subj,
-            "task":         f"rec_{rec_id}",
-            "recording_id": f"{subj}_rec_{rec_id}",
-            "hr_bpm":       hr_bpm,
-            "rr_bpm":       rr_bpm,
-            "pulse_rate":   pulse_signal,
-            "resp_rate":    resp_signal,
-            "signal_type":  "raw",
-        }
-
-    # ─────────────────────────────────────────────────────
-    # Streaming methods (RAM-friendly)
-    # ─────────────────────────────────────────────────────
-
-    def iter_frames(self, idx, max_frames=None):
-        """
-        Yield frames one-by-one. Only ONE frame in RAM at a time.
-
-        Args:
-            idx:        Sample index
-            max_frames: Max number of frames to yield (None = all)
-
-        Yields:
-            np.ndarray (H, W), float32 (temperature in °C)
-        """
-        subj, rec_id, npz_path = self.samples[idx]
+    def _load_single_frame(self, sample_info, frame_idx):
+        """Load one frame from NPZ file (for streaming)."""
+        subj, rec_id, npz_path = sample_info
 
         data = np.load(npz_path, allow_pickle=True)
-        all_frames = data["array1"]
+        return data["array1"][frame_idx].astype(np.float32)
 
-        fps = self._compute_fps(data["array2"])
-        warmup_frames = int(self.warmup_seconds * fps)
-
-        total = len(all_frames)
-        start = min(warmup_frames, total)
-
-        count = 0
-        for i in range(start, total):
-            if max_frames is not None and count >= max_frames:
-                break
-
-            yield all_frames[i].astype(np.float32)
-            count += 1
-
-    def get_metadata(self, idx):
-        """
-        Get sample metadata WITHOUT loading frames into RAM.
-
-        Returns:
-            dict with fps, subject, task, recording_id,
-                 hr_bpm, rr_bpm, total_frames (no frames!)
-        """
-        subj, rec_id, npz_path = self.samples[idx]
+    def _get_total_frames(self, sample_info):
+        """Get frame count from NPZ array."""
+        subj, rec_id, npz_path = sample_info
 
         data = np.load(npz_path, allow_pickle=True)
-        fps = self._compute_fps(data["array2"])
+        return len(data["array1"])
 
-        # Warmup
-        warmup_frames = int(self.warmup_seconds * fps)
-        total = len(data["array1"])
-        start = min(warmup_frames, total)
+    def _get_fps(self, sample_info):
+        """Compute FPS from timestamps."""
+        subj, rec_id, npz_path = sample_info
 
-        # Ground truth from raw signals
-        pulse_signal = data["array4"][start:].astype(np.float64)
-        resp_signal = data["array5"][start:].astype(np.float64)
+        data = np.load(npz_path, allow_pickle=True)
+        timestamps = data["array2"]
 
-        hr_bpm = self._compute_bpm_from_peaks(
-            pulse_signal, fps, freq_range=(0.7, 3.5))
-        rr_bpm = self._compute_bpm_from_peaks(
-            resp_signal, fps, freq_range=(0.1, 0.7))
-
-        return {
-            "fps":          fps,
-            "subject":      subj,
-            "task":         f"rec_{rec_id}",
-            "recording_id": f"{subj}_rec_{rec_id}",
-            "hr_bpm":       hr_bpm,
-            "rr_bpm":       rr_bpm,
-            "total_frames": total - start,
-            "pulse_rate":   pulse_signal,
-            "resp_rate":    resp_signal,
-            "signal_type":  "raw",
-        }
-
-    # ─────────────────────────────────────────────────────
-    # Internal helper methods
-    # ─────────────────────────────────────────────────────
-
-    def _compute_fps(self, timestamps):
-        """
-        Compute FPS from timestamp array.
-        Handles timestamps in both seconds and milliseconds.
-        """
         if len(timestamps) < 2:
             return self.default_fps
 
-        diffs = np.diff(timestamps)
-        median_diff = np.median(diffs)
+        median_diff = np.median(np.diff(timestamps))
 
         if median_diff <= 0:
             return self.default_fps
 
-        # If median_diff > 1, timestamps are in milliseconds
+        # Timestamps in milliseconds → convert
         if median_diff > 1.0:
             return 1000.0 / median_diff
         else:
             return 1.0 / median_diff
 
+    def _load_ground_truth(self, sample_info, fps):
+        """Compute HR/RR from raw physiological signals."""
+        subj, rec_id, npz_path = sample_info
+
+        data = np.load(npz_path, allow_pickle=True)
+
+        # Apply warmup removal to signals too
+        warmup_frames = int(self.warmup_seconds * fps)
+        pulse_signal = data["array4"][warmup_frames:].astype(
+            np.float64)
+        resp_signal = data["array5"][warmup_frames:].astype(
+            np.float64)
+
+        hr_bpm = self._compute_bpm_from_fft(
+            pulse_signal, fps, freq_range=(0.7, 3.5))
+        rr_bpm = self._compute_bpm_from_fft(
+            resp_signal, fps, freq_range=(0.1, 0.7))
+
+        return {
+            "hr_bpm":      hr_bpm,
+            "rr_bpm":      rr_bpm,
+            "pulse_rate":  pulse_signal,
+            "resp_rate":   resp_signal,
+            "signal_type": "raw",
+        }
+
+    def _get_subject(self, sample_info):
+        return sample_info[0]
+
+    def _get_task(self, sample_info):
+        return f"rec_{sample_info[1]}"
+
+    # ─────────────────────────────────────────────────────
+    # NPZ-specific helper methods
+    # ─────────────────────────────────────────────────────
+
     @staticmethod
-    def _compute_bpm_from_peaks(signal, fps, freq_range=(0.7, 3.5)):
-        """
-        Compute BPM from a raw physiological signal using FFT.
-
-        Args:
-            signal:     np.ndarray (N,), raw pulse or resp signal
-            fps:        float, sampling rate
-            freq_range: tuple (low, high) in Hz
-
-        Returns:
-            float: estimated BPM, or NaN if computation fails
-        """
+    def _compute_bpm_from_fft(signal, fps,
+                               freq_range=(0.7, 3.5)):
+        """Compute BPM from raw signal using FFT."""
         try:
             if len(signal) < 10:
                 return float("nan")
 
-            # Remove DC offset
             signal = signal - np.mean(signal)
 
-            # Bandpass via FFT
             n = len(signal)
             window = np.hanning(n)
             fft_vals = np.abs(np.fft.rfft(signal * window))
             freqs = np.fft.rfftfreq(n, d=1.0 / fps)
 
-            # Only look in the valid frequency range
-            mask = (freqs >= freq_range[0]) & (freqs <= freq_range[1])
-
+            mask = ((freqs >= freq_range[0])
+                    & (freqs <= freq_range[1]))
             if not mask.any():
                 return float("nan")
 
             fft_masked = fft_vals.copy()
             fft_masked[~mask] = 0
 
-            # Find dominant frequency
             peak_idx = np.argmax(fft_masked)
             peak_freq = freqs[peak_idx]
 
-            # Convert to BPM
-            bpm = peak_freq * 60.0
-
-            return float(bpm)
+            return float(peak_freq * 60.0)
 
         except Exception:
             return float("nan")
 
     @staticmethod
     def _sort_key(path):
-        """
-        Sort key for npz filenames by numeric ID.
-        "synchronized_data_5.npz" → 5
-        """
-        fname = os.path.splitext(os.path.basename(path))[0]
+        """Sort npz filenames by numeric ID."""
+        fname = os.path.splitext(
+            os.path.basename(path))[0]
         try:
             return int(fname.split("_")[-1])
         except ValueError:
