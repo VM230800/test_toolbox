@@ -31,29 +31,10 @@ FERTIG!
 
 
 
-python -c "
-import os
-
-root = '/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2'
-
-thermal = os.path.join(root, 'Thermal')
-physio = os.path.join(root, 'Physiology')
-
-print('Thermal exists:', os.path.isdir(thermal))
-print('Physiology exists:', os.path.isdir(physio))
-
-# Subjects in Thermal
-subjects = [d for d in os.listdir(thermal) if os.path.isdir(os.path.join(thermal, d))]
-print(f'Subjects in Thermal: {subjects[:5]}...')
-
-# Check F001
-import glob
-wmvs = glob.glob(os.path.join(thermal, 'F001', '*.wmv'))
-print(f'WMV files in F001: {wmvs}')
-
-# Check Physiology structure
-physio_f001 = os.path.join(physio, 'F001')
-print(f'Physio F001 exists: {os.path.isdir(physio_f001)}')
-if os.path.isdir(physio_f001):
-    print(f'Physio F001 contents: {os.listdir(physio_f001)}')
-"
+Thermal exists: True
+Physiology exists: True
+Subjects in Thermal: ['F038', 'F032', 'F045', 'M040', 'M037']...
+WMV files in F001: ['/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Thermal/F001/T7.wmv', '/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Thermal/F001/T9.wmv', '/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Thermal/F001/T8.wmv', '/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Thermal/F001/T6.wmv', '/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Thermal/F001/T1.wmv', '/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Thermal/F001/T2.wmv', '/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Thermal/F001/T5.wmv', '/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Thermal/F001/T10.wmv', '/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Thermal/F001/T4.wmv', '/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Thermal/F001/T3.wmv']
+Physio F001 exists: True
+Physio F001 contents: ['T4', 'T9', 'T3', 'T7', 'T2', 'T8', 'T5', 'T1', 'T10', 'T6']
+(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ 
