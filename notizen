@@ -64,14 +64,37 @@ Samples: 1
 
 
 
-# ── Test get_metadata (neues Feature) ──
-print("\n── Test get_metadata() ──")
-meta = dataset.get_metadata(0)
-print(f"Recording: {meta['recording_id']}")
-print(f"FPS: {meta['fps']:.1f}")
-print(f"Frames: {meta['total_frames']}")
-print(f"HR GT: {meta['hr_bpm']:.1f} BPM")
-print(f"RR GT: {meta['rr_bpm']:.1f} BPM")
+"""Quick test with BP4D+ dataset – 100 frames + signal comparison."""
+import numpy as np
+import yaml
+from data.bp4d_loader import BP4DDataset
+from utils.yolo_processing import process_with_yolo
+from preprocessing.roi_extraction import compute_rois
+from preprocessing.signal_extraction import extract_all_roi_signals, interpolate_nan
+from preprocessing.peak_extraction import bandpass_filter
+from methods.thermal_mean import ThermalMeanMethod
+from methods.ica import ICAMethod
+from methods.garbey import GarbeyMethod
+from utils.visualization import (
+    save_roi_overlay,
+    save_signal_comparison,
+)
+
+# ── Load config ──
+with open("configs/run_config.yaml") as f:
+    config = yaml.safe_load(f)
+
+with open("configs/bp4d.yaml") as f:
+    ds_config = yaml.safe_load(f)
+
+# ── Load dataset ──
+dataset = BP4DDataset(
+    root_dir=ds_config["root_dir"],
+    subjects=["F001"],
+    tasks=["T1"],
+    fps=25,
+)
+
 
 
 
