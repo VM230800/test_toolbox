@@ -1,99 +1,34 @@
-synchronized_data_0.npz		synchronized_data_26.npz
-synchronized_data_1.npz		synchronized_data_27.npz
-synchronized_data_10.npz	synchronized_data_28.npz
-synchronized_data_11.npz	synchronized_data_29.npz
-synchronized_data_12.npz	synchronized_data_3.npz
-synchronized_data_13.npz	synchronized_data_30.npz
-synchronized_data_14.npz	synchronized_data_31.npz
-synchronized_data_15.npz	synchronized_data_32.npz
-synchronized_data_16.npz	synchronized_data_33.npz
-synchronized_data_17.npz	synchronized_data_34.npz
-synchronized_data_19.npz	synchronized_data_35.npz
-synchronized_data_2.npz		synchronized_data_37.npz
-synchronized_data_20.npz	synchronized_data_4.npz
-synchronized_data_21.npz	synchronized_data_5.npz
-synchronized_data_22.npz	synchronized_data_6.npz
-synchronized_data_23.npz	synchronized_data_7.npz
-synchronized_data_24.npz	synchronized_data_8.npz
-synchronized_data_25.npz	synchronized_data_9.npz
-
-
 (toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ python test_quick.py
-BP4DDataset: 1 subjects, 1 samples
+BP4DDataset: 1 recordings found
+
+── Test get_metadata() ──
+Recording: F001_T1
+FPS: 25.0
+Frames: 1612
+HR GT: 95.9 BPM
+RR GT: 16.5 BPM
+
 Frames: (100, 480, 726, 3), float32
 RAM: ~418 MB
+Dauer: 4.0s bei 25.0 FPS
+
+Ground Truth: HR=95.9 BPM, RR=16.5 BPM
+  Pulse Rate Signal: 64597 Werte
+  Resp Rate Signal:  64597 Werte
 [W NNPACK.cpp:64] Could not initialize NNPACK! Reason: Unsupported hardware.
 YOLO: 100/100 frames with keypoints
-HR: 75.0 BPM
-Ground Truth HR: 95.9 BPM
-FERTIG!
-(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$
+  Saved: results/F001_T1/F001_T1_roi_overlay.png
 
-
-
-(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ cat configs/bp4d.yaml
-# ─────────────────────────────────────────────────────────────────
-# BP4D+ Dataset – Configurations
-# ─────────────────────────────────────────────────────────────────
-#
-# Expected directory structure:
-#   BP4D+/
-#   ├── Physiology/
-#   │   └── F001/
-#   │       └── T1/
-#   │           ├── Pulse Rate_BPM.txt
-#   │           ├── Respiration Rate_BPM.txt
-#   │           ├── BP_mmHg.txt
-#   │           ├── BP Dia_mmHg.txt
-#   │           ├── LA Mean BP_mmHg.txt
-#   │           ├── LA Systolic BP_mmHg.txt
-#   │           ├── microsiemens.txt
-#   │           └── Resp_Volts.txt
-#   └── Thermal/
-#       └── F001/
-#           ├── T1.wmv
-#           └── ...
-
-
-
-root_dir: '/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2'
-Thermal exists: True
-Physiology exists: True
-BP4DDataset: 1 recordings found
-Samples: 1
-
-
-
-"""Quick test with BP4D+ dataset – 100 frames + signal comparison."""
-import numpy as np
-import yaml
-from data.bp4d_loader import BP4DDataset
-from utils.yolo_processing import process_with_yolo
-from preprocessing.roi_extraction import compute_rois
-from preprocessing.signal_extraction import extract_all_roi_signals, interpolate_nan
-from preprocessing.peak_extraction import bandpass_filter
-from methods.thermal_mean import ThermalMeanMethod
-from methods.ica import ICAMethod
-from methods.garbey import GarbeyMethod
-from utils.visualization import (
-    save_roi_overlay,
-    save_signal_comparison,
-)
-
-# ── Load config ──
-with open("configs/run_config.yaml") as f:
-    config = yaml.safe_load(f)
-
-with open("configs/bp4d.yaml") as f:
-    ds_config = yaml.safe_load(f)
-
-# ── Load dataset ──
-dataset = BP4DDataset(
-    root_dir=ds_config["root_dir"],
-    subjects=["F001"],
-    tasks=["T1"],
-    fps=25,
-)
+1. Thermal Mean:
+Traceback (most recent call last):
+  File "/Users/valeriamoltschanov/Desktop/test_toolbox/test_quick.py", line 95, in <module>
+    r1 = tm.estimate(cropped, rois_per_frame, fps)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/valeriamoltschanov/Desktop/test_toolbox/methods/thermal_mean.py", line 89, in estimate
+    bp = self.signal_config[f"{self.target}_bandpass"]
+         ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'both_bandpass'
+(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ 
 
 
 
