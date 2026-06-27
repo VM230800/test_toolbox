@@ -15,3 +15,18 @@ Resp_Volts erste 20 Werte:
  -4.00391 -3.99384 -3.98834 -3.97919 -3.96942 -3.96362 -3.95508 -3.9444
  -3.93768 -3.92975 -3.91998 -3.91205]
 (toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ 
+
+
+
+BP4DDataset: 0 recordings found
+
+── Test get_metadata() ──
+Traceback (most recent call last):
+  File "/Users/valeriamoltschanov/Desktop/test_toolbox/test_quick.py", line 37, in <module>
+    meta = dataset.get_metadata(0)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/valeriamoltschanov/Desktop/test_toolbox/data/base_loader.py", line 170, in get_metadata
+    sample_info = self.samples[idx]
+                  ~~~~~~~~~~~~^^^^^
+IndexError: list index out of range
+(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ 
