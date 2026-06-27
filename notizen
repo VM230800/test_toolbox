@@ -18,15 +18,20 @@ Resp_Volts erste 20 Werte:
 
 
 
-BP4DDataset: 0 recordings found
+python -c "
+import os
 
-── Test get_metadata() ──
-Traceback (most recent call last):
-  File "/Users/valeriamoltschanov/Desktop/test_toolbox/test_quick.py", line 37, in <module>
-    meta = dataset.get_metadata(0)
-           ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/valeriamoltschanov/Desktop/test_toolbox/data/base_loader.py", line 170, in get_metadata
-    sample_info = self.samples[idx]
-                  ~~~~~~~~~~~~^^^^^
-IndexError: list index out of range
-(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ 
+thermal = '/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2/Thermal'
+print('Exists:', os.path.isdir(thermal))
+print('Contents:', os.listdir(thermal)[:5] if os.path.isdir(thermal) else 'NICHT DA')
+
+from data.bp4d_loader import BP4DDataset
+ds = BP4DDataset(
+    root_dir='/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2',
+    subjects=['F001'],
+    tasks=['T1'],
+    fps=25,
+)
+print(f'Samples: {len(ds)}')
+print(f'Samples: {ds.samples}')
+"
