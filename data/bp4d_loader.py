@@ -39,12 +39,14 @@ class BP4DDataset(BaseLoader):
         if subjects is None:
             subjects = sorted([
                 d for d in os.listdir(self.thermal_dir)
-                if os.path.isdir(os.path.join(self.thermal_dir, d))
+                if os.path.isdir(
+                    os.path.join(self.thermal_dir, d))
             ])
 
         samples = []
         for subj in subjects:
-            subj_thermal = os.path.join(self.thermal_dir, subj)
+            subj_thermal = os.path.join(
+                self.thermal_dir, subj)
             wmv_files = sorted(glob.glob(
                 os.path.join(subj_thermal, "*.wmv")
             ))
@@ -52,7 +54,8 @@ class BP4DDataset(BaseLoader):
                 task = os.path.splitext(
                     os.path.basename(wmv_path))[0]
 
-                if self.tasks is not None and task not in self.tasks:
+                if (self.tasks is not None
+                        and task not in self.tasks):
                     continue
 
                 physio_path = os.path.join(
@@ -94,7 +97,8 @@ class BP4DDataset(BaseLoader):
 
         if not ret:
             raise IOError(
-                f"Cannot read frame {frame_idx} from {wmv_path}")
+                f"Cannot read frame {frame_idx} "
+                f"from {wmv_path}")
 
         return frame.astype(np.float32)
 
@@ -117,37 +121,69 @@ class BP4DDataset(BaseLoader):
         return fps if fps > 0 else self.default_fps
 
     def _load_ground_truth(self, sample_info, fps):
-        """Load HR/RR from physiology text files."""
+        """
+        Load HR/RR ground truth from physiology files.
+
+        Returns BPM values AND raw waveforms:
+            - pulse_rate:   BPM over time (~1000 Hz)
+            - resp_rate:    BPM over time (~1000 Hz)
+            - bp_waveform:  raw blood pressure signal
+            - resp_waveform: raw respiration signal
+            - physio_fps:   sampling rate of physiology
+        """
         subj, task, wmv_path = sample_info
-        physio_dir = os.path.join(self.physio_dir, subj, task)
+        physio_dir = os.path.join(
+            self.physio_dir, subj, task)
 
-        pr_path = os.path.join(physio_dir,
-                               "Pulse Rate_BPM.txt")
-        rr_path = os.path.join(physio_dir,
-                               "Respiration Rate_BPM.txt")
+        result = {
+            "hr_bpm":         float("nan"),
+            "rr_bpm":         float("nan"),
+            "pulse_rate":     None,
+            "resp_rate":      None,
+            "bp_waveform":    None,
+            "resp_waveform":  None,
+            "physio_fps":     1000.0,
+        }
 
-        # Heart rate
+        # ── Pulse Rate BPM (for mean GT value) ──
+        pr_path = os.path.join(
+            physio_dir, "Pulse Rate_BPM.txt")
         if os.path.exists(pr_path):
             pulse_rate = np.loadtxt(pr_path)
-            hr_bpm = float(np.nanmean(pulse_rate))
-        else:
-            pulse_rate = None
-            hr_bpm = float("nan")
+            result["pulse_rate"] = pulse_rate
+            result["hr_bpm"] = float(np.nanmean(pulse_rate))
 
-        # Respiration rate
+        # ── Respiration Rate BPM ──
+        rr_path = os.path.join(
+            physio_dir, "Respiration Rate_BPM.txt")
         if os.path.exists(rr_path):
             resp_rate = np.loadtxt(rr_path)
-            rr_bpm = float(np.nanmedian(resp_rate))
-        else:
-            resp_rate = None
-            rr_bpm = float("nan")
+            result["resp_rate"] = resp_rate
+            result["rr_bpm"] = float(np.nanmedian(resp_rate))
 
-        return {
-            "hr_bpm":     hr_bpm,
-            "rr_bpm":     rr_bpm,
-            "pulse_rate": pulse_rate,
-            "resp_rate":  resp_rate,
-        }
+        # ── Raw BP waveform (oscillating pulse!) ──
+        bp_path = os.path.join(
+            physio_dir, "BP_mmHg.txt")
+        if os.path.exists(bp_path):
+            result["bp_waveform"] = np.loadtxt(bp_path)
+
+        # ── Raw Respiration waveform ──
+        resp_path = os.path.join(
+            physio_dir, "Resp_Volts.txt")
+        if os.path.exists(resp_path):
+            result["resp_waveform"] = np.loadtxt(resp_path)
+
+        # ── Calculate physiology sampling rate ──
+        # All files have same length, use any to compute
+        if result["pulse_rate"] is not None:
+            total_frames = self._get_total_frames(sample_info)
+            video_duration = total_frames / fps
+            if video_duration > 0:
+                result["physio_fps"] = (
+                    len(result["pulse_rate"]) / video_duration
+                )
+
+        return result
 
     def _get_subject(self, sample_info):
         return sample_info[0]
