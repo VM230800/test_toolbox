@@ -256,6 +256,21 @@ def save_visualisations(config, sample, cropped, keypoints,
     save_roi_overlay(cropped[0], keypoints[0],
                      recording_id, save_dir)
 
+    # ── 1b. Method-specific ROI Overlays ──       ← HIER NEU
+    for method_name in sample_results.keys():
+        method_cfg = config["methods"].get(
+            method_name, {})
+        try:
+            save_method_roi_overlay(
+                cropped[0], keypoints[0],
+                method_name, method_cfg,
+                recording_id, save_dir,
+            )
+        except Exception as e:
+            warnings.warn(
+                f"    Method overlay failed "
+                f"({method_name}): {e}")                        
+
     # ── 2. Optional Video ──
     if output.get("save_video", False):
         max_sec = output.get("video_seconds", 4)
