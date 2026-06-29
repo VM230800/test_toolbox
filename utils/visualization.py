@@ -25,9 +25,32 @@ ROI_COLORS = {
 }
 
 
+def _to_color(frame):
+    """
+    Convert grayscale frame to colormap (Inferno).
+    Returns BGR uint8 image ready for cv2.
+
+    If already 3-channel, just ensures uint8.
+    """
+    if len(frame.shape) == 2 or frame.shape[2] == 1:
+        gray = frame if len(frame.shape) == 2 \
+            else frame[:, :, 0]
+        mn, mx = gray.min(), gray.max()
+        if mx > mn:
+            norm = ((gray - mn) / (mx - mn) * 255).astype(
+                np.uint8)
+        else:
+            norm = np.zeros_like(gray, dtype=np.uint8)
+        return cv2.applyColorMap(norm, cv2.COLORMAP_INFERNO)
+    else:
+        if frame.dtype != np.uint8:
+            return np.clip(frame, 0, 255).astype(np.uint8)
+        return frame.copy()
+
+
 def _draw_overlays(frame, keypoints, frame_idx=None):
     """Draw keypoints + ROI circles on a frame."""
-    vis = frame.copy()
+    vis = _to_color(frame)
 
     for i in range(54):
         if np.isnan(keypoints[i]).any():
@@ -59,15 +82,6 @@ def _resample_to_match(signal, source_fps, target_fps,
                        target_length):
     """
     Resample a signal from source_fps to target_fps.
-
-    Args:
-        signal:       np.ndarray, original signal
-        source_fps:   float, original sampling rate
-        target_fps:   float, desired sampling rate
-        target_length: int, desired number of samples
-
-    Returns:
-        np.ndarray with target_length samples
     """
     duration = target_length / target_fps
     n_source = int(duration * source_fps)
@@ -81,7 +95,7 @@ def _resample_to_match(signal, source_fps, target_fps,
 
 
 # ══════════════════════════════════════════════════════════
-# 1. ROI Overlay Image (~100 KB)
+# 1. ROI Overlay Image (all keypoints)
 # ══════════════════════════════════════════════════════════
 
 def save_roi_overlay(frame, keypoints, recording_id,
@@ -92,6 +106,176 @@ def save_roi_overlay(frame, keypoints, recording_id,
     vis = _draw_overlays(frame, keypoints, frame_idx=0)
     path = os.path.join(
         rec_dir, f"{recording_id}_roi_overlay.png")
+    cv2.imwrite(path, vis)
+    print(f"  Saved: {path}")
+
+
+# ══════════════════════════════════════════════════════════
+# 1b. Method-specific ROI Overlay
+# ══════════════════════════════════════════════════════════
+
+def save_method_roi_overlay(frame, keypoints, method_name,
+                            method_config, recording_id,
+                            save_dir):
+    """
+    Save method-specific ROI overlay showing exactly
+    which regions each method uses.
+
+    - thermal_mean / ica: circles on ROIs
+    - garbey: lines along blood vessels
+    """
+    rec_dir = os.path.join(save_dir, recording_id)
+    os.makedirs(rec_dir, exist_ok=True)
+
+    vis = _to_color(frame)
+    h, w = vis.shape[:2]
+
+    # ── Method title ──
+    method_labels = {
+        "thermal_mean": "Thermal Mean",
+        "ica": "ICA",
+        "garbey": "Garbey (2007)",
+    }
+    label = method_labels.get(method_name, method_name)
+
+    cv2.putText(vis, f"Method: {label}", (10, 25),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+                (255, 255, 255), 2)
+
+    if method_name in ("thermal_mean", "ica"):
+        # ── Draw ROI circles ──
+        roi_names = method_config.get("rois", [])
+
+        if not np.isnan(keypoints).all():
+            rois = compute_rois(keypoints)
+
+            colors = {
+                "forehead":    (0, 255, 0),
+                "left_cheek":  (255, 100, 100),
+                "right_cheek": (100, 100, 255),
+                "nose":        (0, 255, 255),
+                "philtrum":    (0, 165, 255),
+            }
+
+            for name in roi_names:
+                if name not in rois:
+                    continue
+
+                cx, cy, r = rois[name]
+                color = colors.get(name, (255, 255, 255))
+
+                # Filled circle (semi-transparent)
+                overlay = vis.copy()
+                cv2.circle(overlay, (cx, cy), r, color, -1)
+                cv2.addWeighted(
+                    overlay, 0.3, vis, 0.7, 0, vis)
+
+                # Circle outline
+                cv2.circle(vis, (cx, cy), r, color, 2)
+
+                # Label
+                cv2.putText(vis, name,
+                            (cx - 20, cy - r - 8),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.4,
+                            color, 1)
+
+        # ROI list at bottom
+        cv2.putText(vis,
+                    f"ROIs: {', '.join(roi_names)}",
+                    (10, h - 15),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.4,
+                    (255, 255, 255), 1)
+
+    elif method_name == "garbey":
+        # ── Draw vessel lines ──
+        lines_config = method_config.get("lines", {})
+
+        line_colors = {
+            "hr": (0, 0, 255),
+            "rr": (255, 0, 0),
+        }
+        line_labels = {
+            "hr": "HR: Temporal Artery",
+            "rr": "RR: Nasal Airflow",
+        }
+
+        if not np.isnan(keypoints).all():
+            y_offset = 50
+            n_points = method_config.get(
+                "line_points", 10)
+            lw = method_config.get("line_width", 3)
+
+            for target, line_def in lines_config.items():
+                p1_idx = line_def["p1"]
+                p2_idx = line_def["p2"]
+
+                if (np.isnan(keypoints[p1_idx]).any()
+                        or np.isnan(
+                            keypoints[p2_idx]).any()):
+                    continue
+
+                p1 = keypoints[p1_idx]
+                p2 = keypoints[p2_idx]
+
+                x1, y1 = int(p1[0]), int(p1[1])
+                x2, y2 = int(p2[0]), int(p2[1])
+
+                color = line_colors.get(
+                    target, (255, 255, 255))
+
+                # Thick line
+                cv2.line(vis, (x1, y1), (x2, y2),
+                         color, 3)
+
+                # Endpoints
+                cv2.circle(vis, (x1, y1), 5, color, -1)
+                cv2.circle(vis, (x2, y2), 5, color, -1)
+
+                # Sample points
+                for j in range(n_points):
+                    frac = j / max(n_points - 1, 1)
+                    px = int(x1 + frac * (x2 - x1))
+                    py = int(y1 + frac * (y2 - y1))
+                    cv2.circle(vis, (px, py), 3,
+                               (255, 255, 255), -1)
+
+                # Line width indicator at midpoint
+                mid_x = (x1 + x2) // 2
+                mid_y = (y1 + y2) // 2
+                direction = np.array(
+                    [x2 - x1, y2 - y1], dtype=float)
+                length = np.linalg.norm(direction)
+                if length > 0:
+                    direction /= length
+                    perp = np.array(
+                        [-direction[1], direction[0]])
+                    pw1 = (int(mid_x - lw * perp[0]),
+                           int(mid_y - lw * perp[1]))
+                    pw2 = (int(mid_x + lw * perp[0]),
+                           int(mid_y + lw * perp[1]))
+                    cv2.line(vis, pw1, pw2,
+                             (255, 255, 0), 1)
+
+                # Label
+                cv2.putText(vis,
+                            line_labels.get(target, target),
+                            (10, y_offset),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.4, color, 1)
+                y_offset += 20
+
+            # Info at bottom
+            cv2.putText(vis,
+                        f"Points: {n_points}, "
+                        f"Width: {lw}px",
+                        (10, h - 15),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.4,
+                        (255, 255, 255), 1)
+
+    # ── Save ──
+    path = os.path.join(
+        rec_dir,
+        f"{recording_id}_{method_name}_roi_overlay.png")
     cv2.imwrite(path, vis)
     print(f"  Saved: {path}")
 
@@ -189,22 +373,6 @@ def save_signal_comparison(predicted_signal, gt_signal, fps,
                            gt_fps=None):
     """
     Plot predicted signal vs ground truth signal.
-
-    If gt_fps is given and differs from fps, the GT signal
-    is automatically resampled to match the predicted signal.
-
-    Args:
-        predicted_signal: np.ndarray, our extracted signal
-        gt_signal:        np.ndarray, ground truth signal
-        fps:              float, video sampling rate
-        predicted_bpm:    float, our estimated BPM
-        gt_bpm:           float, ground truth BPM
-        signal_type:      str, "hr" or "rr"
-        method_name:      str, e.g. "thermal_mean"
-        recording_id:     str, e.g. "F001_T1"
-        save_dir:         str, output folder
-        bandpass:         tuple (low_hz, high_hz)
-        gt_fps:           float or None, GT sampling rate
     """
     fig, axes = plt.subplots(2, 1, figsize=(14, 8))
 
@@ -221,7 +389,6 @@ def save_signal_comparison(predicted_signal, gt_signal, fps,
         fontsize=13, fontweight="bold",
     )
 
-    # ── Resample GT if different sampling rate ──
     n_pred = len(predicted_signal)
 
     if gt_fps is not None and abs(gt_fps - fps) > 0.1:
@@ -230,7 +397,6 @@ def save_signal_comparison(predicted_signal, gt_signal, fps,
     else:
         gt_resampled = gt_signal
 
-    # ── Normalise both to [-1, 1] ──
     def normalise(sig):
         sig = sig - np.nanmean(sig)
         mx = np.nanmax(np.abs(sig))
@@ -240,7 +406,8 @@ def save_signal_comparison(predicted_signal, gt_signal, fps,
 
     pred_clean = np.nan_to_num(
         predicted_signal.copy(), nan=0.0)
-    gt_clean = np.nan_to_num(gt_resampled.copy(), nan=0.0)
+    gt_clean = np.nan_to_num(
+        gt_resampled.copy(), nan=0.0)
 
     pred_norm = normalise(pred_clean)
     gt_norm = normalise(gt_clean)
@@ -250,9 +417,6 @@ def save_signal_comparison(predicted_signal, gt_signal, fps,
     gt_norm = gt_norm[:n]
     time_axis = np.arange(n) / fps
 
-    # ────────────────────────────────────
-    # Subplot 1: Time Domain
-    # ────────────────────────────────────
     ax1 = axes[0]
     ax1.plot(time_axis, gt_norm, color="red", alpha=0.7,
              linewidth=1.0,
@@ -280,9 +444,6 @@ def save_signal_comparison(predicted_signal, gt_signal, fps,
                   facecolor="white", alpha=0.8),
     )
 
-    # ────────────────────────────────────
-    # Subplot 2: Frequency Domain (FFT)
-    # ────────────────────────────────────
     ax2 = axes[1]
 
     window = np.hanning(n)
@@ -362,11 +523,6 @@ def save_gt_physiology_plot(physio_signals, predicted_signal,
     """
     Plot raw ground truth physiology signal alongside
     our predicted thermal signal.
-
-    Shows 3 subplots:
-        1. Raw physiology waveform (BP_mmHg or Resp_Volts)
-        2. Our predicted thermal signal (bandpass filtered)
-        3. GT BPM rate over time + our predicted BPM line
     """
     fig, axes = plt.subplots(3, 1, figsize=(14, 10))
 
@@ -400,7 +556,6 @@ def save_gt_physiology_plot(physio_signals, predicted_signal,
     time_rate = np.arange(len(rate_clip)) / fps_physio
     time_video = np.arange(len(predicted_signal)) / fps_video
 
-    # ── Subplot 1: Raw Physiology Waveform ──
     ax1 = axes[0]
     ax1.plot(time_physio, waveform_clip, color="red",
              linewidth=0.4, alpha=0.8)
@@ -421,7 +576,6 @@ def save_gt_physiology_plot(physio_signals, predicted_signal,
                       facecolor="wheat", alpha=0.8),
         )
 
-    # ── Subplot 2: Our Predicted Signal ──
     ax2 = axes[1]
 
     pred_norm = predicted_signal - np.mean(predicted_signal)
@@ -440,7 +594,6 @@ def save_gt_physiology_plot(physio_signals, predicted_signal,
     if video_duration > 5:
         ax2.set_xlim(0, min(5, video_duration))
 
-    # ── Subplot 3: BPM over Time ──
     ax3 = axes[2]
 
     ax3.plot(time_rate, rate_clip, color="red",
@@ -497,7 +650,10 @@ def save_roi_video(frames, keypoints, fps, recording_id,
     max_frames = int(max_seconds * fps)
     n = min(len(frames), max_frames)
 
-    h, w = frames[0].shape[:2]
+    # Get dimensions from colormapped frame
+    test_frame = _to_color(frames[0])
+    h, w = test_frame.shape[:2]
+
     path = os.path.join(
         rec_dir, f"{recording_id}_roi_video.mp4")
 
