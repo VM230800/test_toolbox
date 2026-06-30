@@ -10,7 +10,7 @@ dataset_config: "configs/bp4d.yaml"
 processing:
   streaming: true                       # true = RAM-friendly
   max_frames: null                      # null = all, or e.g. 250
-  frame_step: 1                         # nur jeden 2. Frame
+  frame_step: 2                         # nur jeden 2. Frame
   dtype: float16 
 
 # Used face detection (YOLO)
