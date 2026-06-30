@@ -1,51 +1,370 @@
-── Test get_metadata() ──
-Recording: F004_T1
-FPS: 25.0
-Frames: 1072
-HR GT: 78.5 BPM
-RR GT: 14.9 BPM
+bash
 
-Frames: (100, 480, 726, 3), float16
-Dauer: 4.0s bei 25.0 FPS
-Ground Truth: HR=78.5, RR=14.9 BPM
-Physiology: 64597 Werte, ~1506 Hz
-[W NNPACK.cpp:64] Could not initialize NNPACK! Reason: Unsupported hardware.
-/Users/valeriamoltschanov/Desktop/test_toolbox/utils/yolo_processing.py:130: UserWarning: No face detected, using full frame.
-  warnings.warn("No face detected, using full frame.")
-/Users/valeriamoltschanov/Desktop/test_toolbox/utils/yolo_processing.py:236: UserWarning: YOLO found no keypoints in 100/100 frames.
-  warnings.warn(
-YOLO: 0/100 frames with keypoints
-  Saved: results/F004_T1/F004_T1_roi_overlay.png
-  Saved: results/F004_T1/F004_T1_thermal_mean_roi_overlay.png
-  Saved: results/F004_T1/F004_T1_ica_roi_overlay.png
-  Saved: results/F004_T1/F004_T1_garbey_roi_overlay.png
+cat > /home/claude/npz_loader_mmap.py << 'PYEOF'
+"""
+data/npz_loader.py (memory-mapped version)
+============================================
+NPZ thermal dataset loader using memory-mapping instead of loading
+entire videos into RAM.
 
-1. Thermal Mean:
-   HR: nan (GT: 78.5, Error: nan)
-   RR: nan (GT: 14.9)
+THE PROBLEM
+-----------
+np.load(npz_path)["array1"] reads the ENTIRE array into RAM at once.
+For a (1800, 768, 1024) float32 video that is:
 
-2. ICA:
-/Users/valeriamoltschanov/Desktop/test_toolbox/methods/ica.py:350: UserWarning: ICA needs at least 2 valid ROI signals.
-  warnings.warn(
-   HR: nan (GT: 78.5, Error: nan)
-   RR: nan (GT: 14.9)
+    1800 * 768 * 1024 * 4 bytes = ~5.6 GB per recording
 
-3. Garbey:
-   HR: 90.0 (GT: 78.5, Error: 11.5)
-   RR: 15.0 (GT: 14.9)
+With 36 subjects this becomes completely infeasible to process
+sequentially, let alone hold several in cache at once.
 
-──────────────────────────────────────────────────
-Generating plots...
+THE FIX: memory-mapping
+------------------------
+np.load(path, mmap_mode="r") does NOT read the file into RAM. Instead
+it returns an array-like object backed directly by the file on disk.
+Slicing it (e.g. mmapped_array[100]) triggers the OS to read only the
+bytes for that slice from disk -- the rest of the array is never
+loaded into memory.
 
-══════════════════════════════════════════════════
-  ZUSAMMENFASSUNG – F004_T1
-══════════════════════════════════════════════════
-  Methode           HR est    HR GT    Error   RR est    RR GT
-  ──────────────────────────────────────────────────────────
-  Thermal Mean        nan     78.5     nan      nan     14.9
-  ICA                 nan     78.5     nan      nan     14.9
-  Garbey             90.0     78.5    11.5     15.0     14.9
+This means: you can iterate over 1800 frames one at a time, and at
+any point only ONE frame (a few MB) is actually in RAM, not the
+whole video.
 
-Plots: results/F004_T1/
-FERTIG!
-(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ 
+IMPORTANT LIMITATION
+---------------------
+mmap_mode only works with .npy files, or with .npz files that are
+NOT compressed (i.e. saved with np.savez, not np.savez_compressed).
+If your .npz files were saved with savez_compressed, mmap_mode will
+silently fall back to loading the whole array -- there is no way
+around this for compressed files; you would need to re-save them
+uncompressed once (a one-time preprocessing cost) to get mmap benefits
+permanently.
+
+Check which one you have:
+    import zipfile
+    with zipfile.ZipFile(path) as z:
+        info = z.getinfo("array1.npy")
+        print(info.compress_type)  # 0 = stored (mmap works), 8 = deflated (mmap won't help)
+"""
+
+from __future__ import annotations
+
+import os
+import glob
+import zipfile
+
+import numpy as np
+
+from data.base_loader import BaseLoader
+
+
+class NPZDataset(BaseLoader):
+
+    def __init__(
+        self,
+        root_dir,
+        subjects=None,
+        recordings=None,
+        warmup_seconds=0,
+        fps=30.0,
+        cache_dir="cache",
+        force_preprocess=False,
+        frame_chunk_size=100,
+    ):
+        """
+        Parameters
+        ----------
+        frame_chunk_size : int
+            When a method needs to scan many frames (e.g. for ROI
+            extraction), frames are read in chunks of this size rather
+            than one at a time, to balance I/O overhead against memory
+            usage. 100 frames at (768, 1024) float32 = ~300 MB per chunk.
+        """
+        self.recordings_filter = recordings
+        self.frame_chunk_size  = frame_chunk_size
+        self._npz_metadata_cache = {}   # small: timestamps, physio only
+        self._mmap_cache = {}           # memory-mapped array handles (cheap)
+
+        super().__init__(
+            root_dir=root_dir,
+            subjects=subjects,
+            warmup_seconds=warmup_seconds,
+            fps=fps,
+            cache_dir=cache_dir,
+            force_preprocess=force_preprocess,
+        )
+
+    # ------------------------------------------------------------------
+    # Memory-mapped frame access
+    # ------------------------------------------------------------------
+
+    def _is_compressed(self, npz_path: str) -> bool:
+        """
+        Check whether array1 inside the .npz is stored compressed.
+        Compressed files cannot be memory-mapped effectively.
+        """
+        with zipfile.ZipFile(npz_path) as z:
+            info = z.getinfo("array1.npy")
+            return info.compress_type != zipfile.ZIP_STORED
+
+    def _get_mmap_frames(self, npz_path: str):
+        """
+        Return a memory-mapped view of array1, WITHOUT loading it
+        into RAM. Subsequent indexing (frames[i], frames[i:j]) reads
+        only the requested bytes from disk.
+
+        Falls back to a warning + full load if the file is compressed
+        (mmap is not possible for compressed npz members).
+        """
+        if npz_path in self._mmap_cache:
+            return self._mmap_cache[npz_path]
+
+        if self._is_compressed(npz_path):
+            import warnings
+            warnings.warn(
+                f"{npz_path}: array1 is stored compressed inside the "
+                f".npz, so memory-mapping is not possible. Falling back "
+                f"to a full load for this file -- consider re-saving "
+                f"with np.savez (uncompressed) instead of "
+                f"np.savez_compressed to enable mmap for all future runs."
+            )
+            data = np.load(npz_path)
+            arr  = data["array1"]
+            self._mmap_cache[npz_path] = arr
+            return arr
+
+        # Uncompressed .npz: extract just the array1.npy member's
+        # byte offset and open it with mmap_mode="r". NpzFile already
+        # supports this directly when the archive is uncompressed.
+        npz_file = np.load(npz_path, mmap_mode="r")
+        arr = npz_file["array1"]
+        self._mmap_cache[npz_path] = arr
+        return arr
+
+    def _get_npz_metadata(self, npz_path: str) -> dict:
+        """
+        Load ONLY the small arrays (timestamps, physio signals).
+        These are tiny (1800 floats = ~7 KB each) so loading them
+        fully into RAM is not a problem.
+        """
+        if npz_path not in self._npz_metadata_cache:
+            data = np.load(npz_path)
+            self._npz_metadata_cache[npz_path] = {
+                "array2": np.array(data["array2"]),
+                "array4": np.array(data["array4"]),
+                "array5": np.array(data["array5"]),
+                "_shape": data["array1"].shape,
+            }
+        return self._npz_metadata_cache[npz_path]
+
+    def _clear_cache(self, npz_path: str | None = None) -> None:
+        """
+        Release memory-mapped handles and metadata for one file
+        (or all files if npz_path is None).
+
+        Note: for an actual mmap array this mostly just drops the
+        Python reference -- the OS page cache may still hold recently
+        accessed pages, but that memory is reclaimable by the OS under
+        pressure, unlike a regular numpy array which is pinned until
+        garbage collected.
+        """
+        if npz_path is None:
+            self._mmap_cache.clear()
+            self._npz_metadata_cache.clear()
+        else:
+            self._mmap_cache.pop(npz_path, None)
+            self._npz_metadata_cache.pop(npz_path, None)
+
+    # ------------------------------------------------------------------
+    # Chunked iteration -- the key tool for processing without
+    # ever holding the full video in RAM
+    # ------------------------------------------------------------------
+
+    def iter_frame_chunks(self, sample_info, chunk_size: int | None = None):
+        """
+        Yield frames in chunks, reading each chunk from disk on demand.
+
+        This is the recommended way to process a full recording (e.g.
+        for ROI extraction or YOLO) without ever materialising more
+        than `chunk_size` frames in RAM at once.
+
+        Parameters
+        ----------
+        sample_info : (subject, rec_id, npz_path) tuple
+        chunk_size  : int | None -- defaults to self.frame_chunk_size
+
+        Yields
+        ------
+        (start_idx, chunk) where chunk is a (chunk_size, H, W) array
+        materialised in RAM (a real array, not a view -- this is the
+        only point where data actually leaves disk into RAM, and only
+        for `chunk_size` frames at a time).
+        """
+        _, _, npz_path = sample_info
+        chunk_size = chunk_size or self.frame_chunk_size
+
+        frames = self._get_mmap_frames(npz_path)   # mmap, no RAM cost yet
+        n_total = frames.shape[0]
+
+        for start in range(0, n_total, chunk_size):
+            end = min(start + chunk_size, n_total)
+            # Slicing a memory-mapped array triggers disk reads for
+            # ONLY this slice; np.asarray() materialises just this
+            # chunk in RAM, then the loop moves on and lets it be
+            # garbage-collected before the next chunk is read.
+            chunk = np.asarray(frames[start:end]).astype(np.float32)
+            yield start, chunk
+
+    # ------------------------------------------------------------------
+    # BaseLoader interface -- discovery & metadata (cheap, unchanged)
+    # ------------------------------------------------------------------
+
+    def _discover_samples(self, subjects):
+        if subjects is None:
+            subjects = sorted([
+                d for d in os.listdir(self.root_dir)
+                if os.path.isdir(os.path.join(self.root_dir, d))
+            ])
+
+        samples = []
+        for subj in subjects:
+            subj_dir = os.path.join(self.root_dir, subj)
+            npz_files = sorted(
+                glob.glob(os.path.join(subj_dir, "synchronized_data_*.npz")),
+                key=self._sort_key,
+            )
+            for npz_path in npz_files:
+                fname  = os.path.splitext(os.path.basename(npz_path))[0]
+                rec_id = int(fname.split("_")[-1])
+
+                if (self.recordings_filter is not None
+                        and rec_id not in self.recordings_filter):
+                    continue
+
+                samples.append((subj, rec_id, npz_path))
+
+        return samples
+
+    def _get_total_frames(self, sample_info):
+        """Get frame count WITHOUT loading any frame data."""
+        _, _, npz_path = sample_info
+        meta = self._get_npz_metadata(npz_path)
+        return meta["_shape"][0]
+
+    def _get_fps(self, sample_info):
+        _, _, npz_path = sample_info
+        meta = self._get_npz_metadata(npz_path)
+        timestamps = meta["array2"]
+
+        if len(timestamps) < 2:
+            return self.default_fps
+
+        median_diff = np.median(np.diff(timestamps))
+        if median_diff <= 0:
+            return self.default_fps
+
+        return 1000.0 / median_diff if median_diff > 1.0 else 1.0 / median_diff
+
+    def _load_ground_truth(self, sample_info, fps):
+        """
+        Compute HR/RR from raw physiological signals.
+
+        Unaffected by the mmap change -- array4/array5 are tiny
+        (a few KB) and are loaded fully regardless.
+        """
+        _, _, npz_path = sample_info
+        meta = self._get_npz_metadata(npz_path)
+
+        warmup_frames = int(self.warmup_seconds * fps)
+        pulse_signal = meta["array4"][warmup_frames:].astype(np.float64)
+        resp_signal  = meta["array5"][warmup_frames:].astype(np.float64)
+
+        hr_bpm = self._compute_bpm_from_fft(pulse_signal, fps, freq_range=(0.7, 3.5))
+        rr_bpm = self._compute_bpm_from_fft(resp_signal,  fps, freq_range=(0.1, 0.7))
+
+        return {
+            "hr_bpm":      hr_bpm,
+            "rr_bpm":      rr_bpm,
+            "pulse_rate":  pulse_signal,
+            "resp_rate":   resp_signal,
+            "signal_type": "raw",
+        }
+
+    def _get_subject(self, sample_info):
+        return sample_info[0]
+
+    def _get_task(self, sample_info):
+        return f"rec_{sample_info[1]}"
+
+    # ------------------------------------------------------------------
+    # Frame access -- now backed by mmap, chunked under the hood
+    # ------------------------------------------------------------------
+
+    def _load_frames(self, sample_info):
+        """
+        Load all frames for this recording.
+
+        WARNING: this still ultimately materialises the full video in
+        RAM, because the BaseLoader contract expects a complete array
+        back. Only use this for short recordings or when you truly
+        need random access to all frames at once.
+
+        For ROI extraction, YOLO processing, or any sequential method
+        (ICA, Garbey, ROI-Nase), use iter_frame_chunks() instead -- see
+        utils/yolo_processing.py and the method files, which have been
+        updated to consume chunks rather than full arrays.
+        """
+        _, _, npz_path = sample_info
+        frames = self._get_mmap_frames(npz_path)
+        result = np.asarray(frames).astype(np.float16)
+        self._clear_cache(npz_path)
+        return result
+
+    def _load_single_frame(self, sample_info, frame_idx):
+        """
+        Load exactly one frame from disk.
+
+        Because frames is memory-mapped, this reads ONLY the bytes
+        for this single frame -- not the whole video.
+        """
+        _, _, npz_path = sample_info
+        frames = self._get_mmap_frames(npz_path)
+        return np.asarray(frames[frame_idx]).astype(np.float16)
+
+    # ------------------------------------------------------------------
+    # Helpers (unchanged)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _compute_bpm_from_fft(signal, fps, freq_range=(0.7, 3.5)):
+        try:
+            if len(signal) < 10:
+                return float("nan")
+            signal = signal - np.mean(signal)
+            n = len(signal)
+            window = np.hanning(n)
+            fft_vals = np.abs(np.fft.rfft(signal * window))
+            freqs = np.fft.rfftfreq(n, d=1.0 / fps)
+            mask = (freqs >= freq_range[0]) & (freqs <= freq_range[1])
+            if not mask.any():
+                return float("nan")
+            fft_masked = fft_vals.copy()
+            fft_masked[~mask] = 0
+            peak_idx = np.argmax(fft_masked)
+            return float(freqs[peak_idx] * 60.0)
+        except Exception:
+            return float("nan")
+
+    @staticmethod
+    def _sort_key(path):
+        fname = os.path.splitext(os.path.basename(path))[0]
+        try:
+            return int(fname.split("_")[-1])
+        except ValueError:
+            return 0
+PYEOF
+echo "done"
+Ausgabe
+
+done
+Fertig
+
