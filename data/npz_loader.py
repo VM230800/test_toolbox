@@ -4,8 +4,9 @@ data/npz_loader.py
 NPZ thermal dataset loader. Inherits from BaseLoader.
 Only implements NPZ-specific logic.
 
-Optimised: NPZ file is memory-mapped, so only accessed
-frames are read from disk – not the entire array.
+Optimised: Metadata (timestamps, physio) loaded separately
+from frames. Frames array loaded ONCE on first access,
+then cached for instant per-frame streaming.
 """
 
 import os
@@ -34,28 +35,51 @@ class NPZDataset(BaseLoader):
         )
 
     # ─────────────────────────────────────────────────────
-    # NPZ file cache – memory-mapped, fast
+    # NPZ cache – metadata and frames separate
     # ─────────────────────────────────────────────────────
 
     def _get_npz_data(self, npz_path):
         """
-        Memory-map NPZ file. Reads only accessed
-        frames from disk, not the entire array.
+        Load NPZ metadata (timestamps, physio) only.
+        Does NOT load frames – use _get_frames_array().
         """
         if npz_path not in self._npz_cache:
-            self._npz_cache[npz_path] = np.load(
-                npz_path,
-                allow_pickle=True,
-                mmap_mode="r",
-            )
+            raw = np.load(npz_path, allow_pickle=True)
+            self._npz_cache[npz_path] = {
+                "array2": raw["array2"],
+                "array4": raw["array4"],
+                "array5": raw["array5"],
+                "_shape": raw["array1"].shape,
+            }
+            raw.close()
         return self._npz_cache[npz_path]
+
+    def _get_frames_array(self, npz_path):
+        """
+        Load frames array ONCE and cache it.
+        First call: ~30 sec (reads from disk).
+        All subsequent calls: instant (from RAM).
+        """
+        cache_key = npz_path + "_frames"
+        if cache_key not in self._npz_cache:
+            print(f"    Loading frames into RAM: "
+                  f"{os.path.basename(npz_path)}...")
+            raw = np.load(npz_path, allow_pickle=True)
+            self._npz_cache[cache_key] = raw["array1"]
+            raw.close()
+            shape = self._npz_cache[cache_key].shape
+            print(f"    Done: {shape}")
+        return self._npz_cache[cache_key]
 
     def _clear_cache(self, npz_path=None):
         """Free cached NPZ data to release RAM."""
         if npz_path is None:
             self._npz_cache.clear()
-        elif npz_path in self._npz_cache:
-            del self._npz_cache[npz_path]
+        else:
+            keys = [k for k in self._npz_cache
+                    if k.startswith(npz_path)]
+            for k in keys:
+                del self._npz_cache[k]
 
     # ─────────────────────────────────────────────────────
     # NPZ-specific implementations
@@ -98,26 +122,25 @@ class NPZDataset(BaseLoader):
     def _load_frames(self, sample_info):
         """Load all frames from NPZ file."""
         subj, rec_id, npz_path = sample_info
-        data = self._get_npz_data(npz_path)
-        frames = data["array1"].astype(np.float16)
+        frames = self._get_frames_array(npz_path)
+        result = frames.astype(np.float16)
         self._clear_cache(npz_path)
-        return frames
+        return result
 
     def _load_single_frame(self, sample_info, frame_idx):
         """
-        Load one frame from memory-mapped NPZ.
-        Only reads this frame from disk.
+        Load one frame. Frames array loaded ONCE
+        on first call, then cached for instant access.
         """
         subj, rec_id, npz_path = sample_info
-        data = self._get_npz_data(npz_path)
-        return data["array1"][frame_idx].astype(
-            np.float16)
+        frames = self._get_frames_array(npz_path)
+        return frames[frame_idx].astype(np.float16)
 
     def _get_total_frames(self, sample_info):
-        """Get frame count from NPZ array."""
+        """Get frame count WITHOUT loading frames."""
         subj, rec_id, npz_path = sample_info
         data = self._get_npz_data(npz_path)
-        return data["array1"].shape[0]
+        return data["_shape"][0]
 
     def _get_fps(self, sample_info):
         """Compute FPS from timestamps."""
