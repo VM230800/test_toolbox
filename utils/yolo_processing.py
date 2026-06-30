@@ -5,12 +5,14 @@ Universal YOLO-based face cropping and keypoint extraction.
 
 Accepts frames in any format from the dataset loaders:
   - (N, H, W, 3) uint8    from BP4D+ video via OpenCV
-  - (N, H, W, 3) float32  from BP4D+ with float conversion
+  - (N, H, W, 3) float16  from BP4D+ with float16 conversion
+  - (N, H, W, 3) float32  from BP4D+ with float32 conversion
   - (N, H, W)    float32  from NPZ thermal data
+  - (N, H, W)    float16  from NPZ thermal data
 
 Provides two modes:
-  - process_with_yolo()            → all frames in RAM (original)
-  - process_with_yolo_streaming()  → one frame at a time (RAM-friendly)
+  - process_with_yolo()            → all frames in RAM
+  - process_with_yolo_streaming()  → one frame at a time
 """
 
 from __future__ import annotations
@@ -25,113 +27,124 @@ from ultralytics import YOLO
 NUM_KEYPOINTS = 54
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------
 # Internal helpers
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------
 
 def _ensure_uint8_3ch(frames):
-    """Convert any loader output to (N, H, W, 3) uint8 for YOLO."""
+    """
+    Convert any batch of frames to (N, H, W, 3) uint8.
 
-    if frames.ndim == 4 and frames.dtype == np.uint8:
-        return frames
-
-    # Single channel float (e.g. NPZ thermal data)
-    if frames.ndim == 3:
-        f_min = frames.min(axis=(1, 2), keepdims=True)
-        f_max = frames.max(axis=(1, 2), keepdims=True)
-        rng = f_max - f_min
-        rng[rng == 0] = 1.0
-        normed = ((frames - f_min) / rng * 255).astype(np.uint8)
-        return np.stack([normed, normed, normed], axis=-1)
-
-    # 3-channel float
-    if frames.ndim == 4 and frames.dtype == np.float32:
-        if frames.max() <= 1.0:
-            return (frames * 255).astype(np.uint8)
-        return np.clip(frames, 0, 255).astype(np.uint8)
-
-    raise ValueError(
-        f"Unsupported frame format: shape={frames.shape}, "
-        f"dtype={frames.dtype}"
-    )
-
-
-def _ensure_uint8_3ch(frames):
-    """Convert any loader output to (N, H, W, 3) uint8 for YOLO."""
-
+    Handles float16, float32, float64, uint8,
+    grayscale, 1-channel, 3-channel.
+    """
     arr = np.array(frames)
 
-    # ── Already uint8 3-channel → done ──
-    if arr.ndim == 4 and arr.dtype == np.uint8 and arr.shape[3] == 3:
+    # Already uint8 3-channel → done
+    if (arr.ndim == 4 and arr.dtype == np.uint8
+            and arr.shape[3] == 3):
         return arr
 
-    # ── Any float → float32 for safe math ──
+    # Any float → float32 for safe math
     if arr.dtype in (np.float16, np.float32, np.float64):
         arr = arr.astype(np.float32)
 
-    # ── (N, H, W) grayscale float → normalise → 3ch uint8 ──
+    # (N, H, W) grayscale → normalise → 3ch uint8
     if arr.ndim == 3:
         f_min = arr.min(axis=(1, 2), keepdims=True)
         f_max = arr.max(axis=(1, 2), keepdims=True)
         rng = f_max - f_min
         rng[rng == 0] = 1.0
-        normed = ((arr - f_min) / rng * 255).astype(np.uint8)
+        normed = ((arr - f_min) / rng * 255).astype(
+            np.uint8)
         return np.stack([normed, normed, normed], axis=-1)
 
-    # ── (N, H, W, 3) float → take channel 0, normalise ──
+    # (N, H, W, 1) → squeeze to (N, H, W) → recurse
+    if arr.ndim == 4 and arr.shape[3] == 1:
+        return _ensure_uint8_3ch(arr[:, :, :, 0])
+
+    # (N, H, W, 3) float → use channel 0, normalise
     if arr.ndim == 4 and arr.shape[3] == 3:
         gray = arr[:, :, :, 0]
         f_min = gray.min(axis=(1, 2), keepdims=True)
         f_max = gray.max(axis=(1, 2), keepdims=True)
         rng = f_max - f_min
         rng[rng == 0] = 1.0
-        normed = ((gray - f_min) / rng * 255).astype(np.uint8)
-        return np.stack([normed, normed, normed], axis=-1)
-
-    # ── (N, H, W, 1) float → squeeze, normalise ──
-    if arr.ndim == 4 and arr.shape[3] == 1:
-        gray = arr[:, :, :, 0]
-        f_min = gray.min(axis=(1, 2), keepdims=True)
-        f_max = gray.max(axis=(1, 2), keepdims=True)
-        rng = f_max - f_min
-        rng[rng == 0] = 1.0
-        normed = ((gray - f_min) / rng * 255).astype(np.uint8)
+        normed = ((gray - f_min) / rng * 255).astype(
+            np.uint8)
         return np.stack([normed, normed, normed], axis=-1)
 
     raise ValueError(
         f"Unsupported frame format: "
-        f"shape={arr.shape}, dtype={arr.dtype}"
-    )
+        f"shape={arr.shape}, dtype={arr.dtype}")
 
 
-def _detect_face_box(model, frame, padding=50, confidence=0.5):
+def _ensure_single_uint8_3ch(frame):
     """
-    Detect the largest face bounding box in a single frame.
+    Convert a SINGLE frame to (H, W, 3) uint8.
+    Used by streaming mode.
+    """
+    arr = np.array(frame)
 
-    Args:
-        model:      YOLO model instance
-        frame:      np.ndarray (H, W, 3) uint8
-        padding:    int, pixels to add around detection
-        confidence: float, minimum confidence
+    # Already uint8 3-channel
+    if (arr.ndim == 3 and arr.dtype == np.uint8
+            and arr.shape[2] == 3):
+        return arr
+
+    # Any float → float32
+    if arr.dtype in (np.float16, np.float32, np.float64):
+        arr = arr.astype(np.float32)
+
+    # (H, W) grayscale
+    if arr.ndim == 2:
+        mn, mx = arr.min(), arr.max()
+        rng = mx - mn if mx > mn else 1.0
+        normed = ((arr - mn) / rng * 255).astype(np.uint8)
+        return np.stack([normed, normed, normed], axis=-1)
+
+    # (H, W, 1)
+    if arr.ndim == 3 and arr.shape[2] == 1:
+        return _ensure_single_uint8_3ch(arr[:, :, 0])
+
+    # (H, W, 3) float → use channel 0, normalise
+    if arr.ndim == 3 and arr.shape[2] == 3:
+        gray = arr[:, :, 0]
+        mn, mx = gray.min(), gray.max()
+        rng = mx - mn if mx > mn else 1.0
+        normed = ((gray - mn) / rng * 255).astype(np.uint8)
+        return np.stack([normed, normed, normed], axis=-1)
+
+    raise ValueError(
+        f"Unsupported single frame: "
+        f"shape={arr.shape}, dtype={arr.dtype}")
+
+
+def _detect_face_box(model, frame, padding=50,
+                     confidence=0.5):
+    """
+    Detect the largest face bounding box in a frame.
 
     Returns:
-        tuple (x1, y1, x2, y2), clamped to frame boundaries
+        tuple (x1, y1, x2, y2)
     """
     h, w = frame.shape[:2]
 
     results = model(frame, verbose=False, conf=confidence)
 
     if len(results) == 0 or results[0].boxes is None:
-        warnings.warn("No face detected, using full frame.")
+        warnings.warn(
+            "No face detected, using full frame.")
         return 0, 0, w, h
 
     boxes = results[0].boxes.xyxy.cpu().numpy()
     if len(boxes) == 0:
-        warnings.warn("No face detected, using full frame.")
+        warnings.warn(
+            "No face detected, using full frame.")
         return 0, 0, w, h
 
     # Take largest box
-    areas = (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1])
+    areas = ((boxes[:, 2] - boxes[:, 0])
+             * (boxes[:, 3] - boxes[:, 1]))
     best = np.argmax(areas)
     x1, y1, x2, y2 = boxes[best].astype(int)
 
@@ -148,15 +161,11 @@ def _extract_keypoints(model, frame, confidence=0.5):
     """
     Extract facial keypoints from a single cropped frame.
 
-    Args:
-        model:      YOLO model instance
-        frame:      np.ndarray (H, W, 3) uint8
-        confidence: float, minimum confidence
-
     Returns:
-        np.ndarray (54, 2) float32, NaN where no keypoint detected
+        np.ndarray (54, 2) float32, NaN where missing
     """
-    keypoints = np.full((NUM_KEYPOINTS, 2), np.nan, dtype=np.float32)
+    keypoints = np.full(
+        (NUM_KEYPOINTS, 2), np.nan, dtype=np.float32)
 
     results = model(frame, verbose=False, conf=confidence)
 
@@ -175,96 +184,101 @@ def _extract_keypoints(model, frame, confidence=0.5):
     return keypoints
 
 
-# ---------------------------------------------------------------------------
-# Public API – Original (all frames in RAM)
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------
+# Public API – All frames in RAM
+# -----------------------------------------------------------
 
-def process_with_yolo(frames, model_path, target_size=(400, 400),
-                      padding=50):
+def process_with_yolo(frames, model_path,
+                      target_size=(400, 400),
+                      padding=50, confidence=0.5):
     """
-    Crop a video to a stable face region and extract keypoints.
-
-    Loads ALL frames into RAM. For large videos, use
-    process_with_yolo_streaming() instead.
+    Crop video to stable face region + extract keypoints.
 
     Args:
-        frames:      np.ndarray, raw frames from any loader
-        model_path:  str, path to YOLO .pt model
-        target_size: tuple (W, H), resize target after cropping
-        padding:     int, pixels to add around face box
+        frames:      np.ndarray from any loader
+        model_path:  path to YOLO .pt model
+        target_size: (W, H) resize target
+        padding:     pixels around face box
+        confidence:  YOLO detection confidence
 
     Returns:
-        cropped_frames: np.ndarray (N, H, W, 3) uint8
-        keypoints:      np.ndarray (N, 54, 2) float32
+        cropped_frames: (N, H, W, 3) uint8
+        keypoints:      (N, 54, 2) float32
     """
-    # Auto-convert to YOLO-compatible format
     frames = _ensure_uint8_3ch(frames)
 
     if frames.ndim != 4 or frames.shape[-1] != 3:
         raise ValueError(
-            f"frames must have shape (N, H, W, 3), got {frames.shape}"
-        )
+            f"frames must be (N,H,W,3), "
+            f"got {frames.shape}")
 
     n_frames = frames.shape[0]
     model = YOLO(model_path)
 
     # Step 1: stable face box from first frame
-    x1, y1, x2, y2 = _detect_face_box(model, frames[0], padding=padding)
+    x1, y1, x2, y2 = _detect_face_box(
+        model, frames[0],
+        padding=padding,
+        confidence=confidence,
+    )
 
     # Step 2: crop + resize all frames
     cropped_frames = np.empty(
-        (n_frames, target_size[1], target_size[0], 3), dtype=np.uint8
-    )
+        (n_frames, target_size[1], target_size[0], 3),
+        dtype=np.uint8)
+
     for i in range(n_frames):
         crop = frames[i, y1:y2, x1:x2]
         cropped_frames[i] = cv2.resize(
-            crop, target_size, interpolation=cv2.INTER_LINEAR
-        )
+            crop, target_size,
+            interpolation=cv2.INTER_LINEAR)
 
-    # Step 3: extract keypoints from each cropped frame
+    # Step 3: extract keypoints
     keypoints = np.empty(
-        (n_frames, NUM_KEYPOINTS, 2), dtype=np.float32
-    )
+        (n_frames, NUM_KEYPOINTS, 2),
+        dtype=np.float32)
+
     n_missing = 0
     for i in range(n_frames):
-        kp = _extract_keypoints(model, cropped_frames[i])
+        kp = _extract_keypoints(
+            model, cropped_frames[i],
+            confidence=confidence,
+        )
         keypoints[i] = kp
         if np.isnan(kp).all():
             n_missing += 1
 
     if n_missing > 0:
         warnings.warn(
-            f"YOLO found no keypoints in {n_missing}/{n_frames} frames."
-        )
+            f"YOLO found no keypoints in "
+            f"{n_missing}/{n_frames} frames.")
 
     return cropped_frames, keypoints
 
 
-# ---------------------------------------------------------------------------
-# Public API – Streaming (RAM-friendly, one frame at a time)
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------
+# Public API – Streaming (RAM-friendly)
+# -----------------------------------------------------------
 
 def process_with_yolo_streaming(frame_iterator, model_path,
-                                target_size=(400, 400), padding=50):
+                                target_size=(400, 400),
+                                padding=50, confidence=0.5):
     """
     Process frames one-by-one through YOLO.
 
-    Only ONE original frame is in RAM at a time.
-    Only the small cropped frames are kept.
-
-    The face bounding box is detected on the first frame
-    and reused for all subsequent frames (stable crop).
+    Only ONE original frame in RAM at a time.
+    Face box detected on first frame, reused for all.
 
     Args:
-        frame_iterator: Generator/iterator that yields frames
-                        one-by-one (from dataset.iter_frames())
-        model_path:     str, path to YOLO .pt model
-        target_size:    tuple (W, H), resize target after cropping
-        padding:        int, pixels to add around face box
+        frame_iterator: yields frames one-by-one
+        model_path:     path to YOLO .pt model
+        target_size:    (W, H) resize target
+        padding:        pixels around face box
+        confidence:     YOLO detection confidence
 
     Returns:
-        cropped_frames: np.ndarray (N, H, W, 3) uint8
-        keypoints:      np.ndarray (N, 54, 2) float32
+        cropped_frames: (N, H, W, 3) uint8
+        keypoints:      (N, 54, 2) float32
     """
     model = YOLO(model_path)
 
@@ -274,47 +288,55 @@ def process_with_yolo_streaming(frame_iterator, model_path,
 
     for i, frame_raw in enumerate(frame_iterator):
 
-        # Convert single frame to uint8 3-channel
         frame = _ensure_single_uint8_3ch(frame_raw)
 
-        # Detect face box on first frame only
         if face_box is None:
             face_box = _detect_face_box(
-                model, frame, padding=padding)
+                model, frame,
+                padding=padding,
+                confidence=confidence,
+            )
 
-        # Crop using stable box
         x1, y1, x2, y2 = face_box
         crop = frame[y1:y2, x1:x2]
         crop_resized = cv2.resize(
-            crop, target_size, interpolation=cv2.INTER_LINEAR)
+            crop, target_size,
+            interpolation=cv2.INTER_LINEAR)
 
-        # Extract keypoints from cropped frame
-        kp = _extract_keypoints(model, crop_resized)
+        kp = _extract_keypoints(
+            model, crop_resized,
+            confidence=confidence,
+        )
 
         cropped_list.append(crop_resized)
         keypoints_list.append(kp)
 
-        # Original frame is NOT stored → RAM stays low
         del frame_raw, frame
 
         if (i + 1) % 50 == 0:
             print(f"    Processed {i + 1} frames...")
 
     if not cropped_list:
-        raise ValueError("No frames received from iterator")
+        raise ValueError(
+            "No frames received from iterator")
 
-    cropped_frames = np.array(cropped_list, dtype=np.uint8)
-    all_keypoints = np.array(keypoints_list, dtype=np.float32)
+    cropped_frames = np.array(
+        cropped_list, dtype=np.uint8)
+    all_keypoints = np.array(
+        keypoints_list, dtype=np.float32)
 
-    n_missing = sum(1 for k in keypoints_list
-                    if np.isnan(k).all())
+    n_missing = sum(
+        1 for k in keypoints_list
+        if np.isnan(k).all())
 
     if n_missing > 0:
         warnings.warn(
             f"YOLO found no keypoints in "
             f"{n_missing}/{len(cropped_list)} frames.")
 
-    print(f"    Streaming complete: {len(cropped_list)} frames, "
-          f"{len(cropped_list) - n_missing} with keypoints")
+    print(f"    Streaming complete: "
+          f"{len(cropped_list)} frames, "
+          f"{len(cropped_list) - n_missing} "
+          f"with keypoints")
 
     return cropped_frames, all_keypoints
