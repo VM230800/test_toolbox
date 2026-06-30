@@ -22,8 +22,6 @@ Child classes only implement DATASET-SPECIFIC logic:
     - _get_task()            → task/recording ID
 """
 
-
-
 import os
 import numpy as np
 from abc import ABC, abstractmethod
@@ -33,14 +31,19 @@ class BaseLoader(ABC):
 
     def __init__(self, root_dir, subjects=None,
                  warmup_seconds=0, fps=30.0,
-                 cache_dir="cache", force_preprocess=False):
+                 cache_dir="cache",
+                 force_preprocess=False):
         """
         Args:
             root_dir:          Path to dataset root folder.
-            subjects:          List of subject IDs, or None for all.
-            warmup_seconds:    Seconds to skip at recording start.
-            fps:               Fallback FPS if metadata unavailable.
-            cache_dir:         Folder for cached preprocessed data.
+            subjects:          List of subject IDs, or None
+                               for all.
+            warmup_seconds:    Seconds to skip at recording
+                               start.
+            fps:               Fallback FPS if metadata
+                               unavailable.
+            cache_dir:         Folder for cached preprocessed
+                               data.
             force_preprocess:  If True, ignore existing cache.
         """
         self.root_dir = root_dir
@@ -51,7 +54,6 @@ class BaseLoader(ABC):
 
         os.makedirs(self.cache_dir, exist_ok=True)
 
-        # Child class fills this via _discover_samples()
         self.samples = self._discover_samples(subjects)
 
         print(f"{self.__class__.__name__}: "
@@ -79,7 +81,7 @@ class BaseLoader(ABC):
 
         Returns standardised dict:
             {
-                "frames":       np.ndarray (N, H, W, ...) float32,
+                "frames":       np.ndarray float16,
                 "fps":          float,
                 "subject":      str,
                 "task":         str,
@@ -91,7 +93,6 @@ class BaseLoader(ABC):
         """
         sample_info = self.samples[idx]
 
-        # ── Dataset-specific loading ──
         fps = self._get_fps(sample_info)
         frames = self._load_frames(sample_info)
         gt = self._load_ground_truth(sample_info, fps)
@@ -99,12 +100,15 @@ class BaseLoader(ABC):
         subject = self._get_subject(sample_info)
         task = self._get_task(sample_info)
 
-        # ── Shared: Remove warmup ──
+        # ── Remove warmup ──
         warmup_frames = int(self.warmup_seconds * fps)
         if warmup_frames > 0 and warmup_frames < len(frames):
             frames = frames[warmup_frames:]
 
-        # ── Build standard result dict ──
+        # ── Convert to float16 to save RAM ──
+        if frames.dtype != np.float16:
+            frames = frames.astype(np.float16)
+
         result = {
             "frames":       frames,
             "fps":          fps,
@@ -115,7 +119,6 @@ class BaseLoader(ABC):
             "rr_bpm":       gt.get("rr_bpm", float("nan")),
         }
 
-        # Add any dataset-specific extra fields
         for key, value in gt.items():
             if key not in result:
                 result[key] = value
@@ -126,18 +129,27 @@ class BaseLoader(ABC):
     # SHARED: iter_frames (RAM-friendly streaming)
     # ─────────────────────────────────────────────────────
 
-    def iter_frames(self, idx, max_frames=None):
+    def iter_frames(self, idx, max_frames=None,
+                    frame_step=1):
         """
         Yield frames one-by-one. Only ONE frame in RAM.
 
         Handles warmup removal automatically.
+        Supports frame_step for temporal downsampling.
 
         Args:
             idx:        Sample index
             max_frames: Max frames to yield (None = all)
+            frame_step: Skip frames (1 = all, 2 = every
+                        other, 3 = every third, ...)
 
         Yields:
-            np.ndarray – one frame at a time
+            np.ndarray – one frame at a time (float16)
+
+        Example:
+            frame_step=1:  F0 F1 F2 F3 F4 F5 → all
+            frame_step=2:  F0    F2    F4     → half
+            frame_step=3:  F0       F3        → third
         """
         sample_info = self.samples[idx]
         fps = self._get_fps(sample_info)
@@ -145,13 +157,26 @@ class BaseLoader(ABC):
         total = self._get_total_frames(sample_info)
 
         start = min(warmup_frames, total)
+        frame_step = max(1, int(frame_step))
 
         count = 0
         for i in range(start, total):
+
+            # Skip frames based on frame_step
+            frame_idx_after_warmup = i - start
+            if frame_idx_after_warmup % frame_step != 0:
+                continue
+
             if max_frames is not None and count >= max_frames:
                 break
 
-            frame = self._load_single_frame(sample_info, i)
+            frame = self._load_single_frame(
+                sample_info, i)
+
+            # Convert to float16 to save RAM
+            if frame.dtype != np.float16:
+                frame = frame.astype(np.float16)
+
             yield frame
             count += 1
 
@@ -188,7 +213,6 @@ class BaseLoader(ABC):
             "total_frames": usable_frames,
         }
 
-        # Add extra fields from ground truth
         for key, value in gt.items():
             if key not in result:
                 result[key] = value
@@ -239,7 +263,7 @@ class BaseLoader(ABC):
         Load ALL frames from one recording.
 
         Returns:
-            np.ndarray (N, H, W) or (N, H, W, 3), float32
+            np.ndarray (N, H, W) or (N, H, W, 3)
         """
         pass
 
@@ -249,7 +273,7 @@ class BaseLoader(ABC):
         Load ONE frame by index (for streaming).
 
         Returns:
-            np.ndarray (H, W) or (H, W, 3), float32
+            np.ndarray (H, W) or (H, W, 3)
         """
         pass
 
@@ -270,8 +294,6 @@ class BaseLoader(ABC):
 
         Returns:
             dict with at least "hr_bpm" and "rr_bpm"
-                  (can include extra fields like
-                   "pulse_rate", "resp_rate", etc.)
         """
         pass
 
