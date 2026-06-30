@@ -91,7 +91,8 @@ cropped, keypoints = process_with_yolo(
     frames,
     model_path=det["model_path"],
     target_size=tuple(det["target_size"]),
-    padding=det.get("padding", 50),
+    padding=det.get("padding", 100),
+    confidence=0.15,
 )
 
 # ── ROIs ──
