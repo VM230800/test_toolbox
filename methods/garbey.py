@@ -45,8 +45,8 @@ import numpy as np
 #     Keypoint 48 (Mundwinkel links) → Keypoint 53 (Unterlippe)
 
 DEFAULT_LINES = {
-    "hr": {"p1": 0, "p2": 2, "name": "temporal_artery_left"},
-    "rr": {"p1": 48, "p2": 53, "name": "nasal_airflow"},
+    "hr": {"p1": 17, "p2": 1, "name": "temporal_artery_left"},
+    "rr": {"p1": 30, "p2": 49, "name": "nasal_airflow"},
 }
 
 
