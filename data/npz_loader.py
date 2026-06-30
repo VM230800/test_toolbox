@@ -3,6 +3,9 @@ data/npz_loader.py
 ==================
 NPZ thermal dataset loader. Inherits from BaseLoader.
 Only implements NPZ-specific logic.
+
+Optimised: NPZ file is opened ONCE and cached,
+not re-opened for every single frame.
 """
 
 import os
@@ -13,10 +16,13 @@ from data.base_loader import BaseLoader
 
 class NPZDataset(BaseLoader):
 
-    def __init__(self, root_dir, subjects=None, recordings=None,
+    def __init__(self, root_dir, subjects=None,
+                 recordings=None,
                  warmup_seconds=0, fps=30.0,
-                 cache_dir="cache", force_preprocess=False):
+                 cache_dir="cache",
+                 force_preprocess=False):
         self.recordings_filter = recordings
+        self._npz_cache = {}  # path → loaded data
 
         super().__init__(
             root_dir=root_dir,
@@ -28,15 +34,37 @@ class NPZDataset(BaseLoader):
         )
 
     # ─────────────────────────────────────────────────────
+    # NPZ file cache – open once, reuse
+    # ─────────────────────────────────────────────────────
+
+    def _get_npz_data(self, npz_path):
+        """
+        Load NPZ file once and cache it.
+        Avoids re-reading the entire file for every frame.
+        """
+        if npz_path not in self._npz_cache:
+            self._npz_cache[npz_path] = np.load(
+                npz_path, allow_pickle=True)
+        return self._npz_cache[npz_path]
+
+    def _clear_cache(self, npz_path=None):
+        """Free cached NPZ data to release RAM."""
+        if npz_path is None:
+            self._npz_cache.clear()
+        elif npz_path in self._npz_cache:
+            del self._npz_cache[npz_path]
+
+    # ─────────────────────────────────────────────────────
     # NPZ-specific implementations
     # ─────────────────────────────────────────────────────
 
     def _discover_samples(self, subjects):
-        """Find all (subject, rec_id, path) combinations."""
+        """Find all (subject, rec_id, path) combos."""
         if subjects is None:
             subjects = sorted([
                 d for d in os.listdir(self.root_dir)
-                if os.path.isdir(os.path.join(self.root_dir, d))
+                if os.path.isdir(
+                    os.path.join(self.root_dir, d))
             ])
 
         samples = []
@@ -44,7 +72,8 @@ class NPZDataset(BaseLoader):
             subj_dir = os.path.join(self.root_dir, subj)
             npz_files = sorted(
                 glob.glob(os.path.join(
-                    subj_dir, "synchronized_data_*.npz")),
+                    subj_dir,
+                    "synchronized_data_*.npz")),
                 key=self._sort_key,
             )
             for npz_path in npz_files:
@@ -53,7 +82,8 @@ class NPZDataset(BaseLoader):
                 rec_id = int(fname.split("_")[-1])
 
                 if (self.recordings_filter is not None
-                        and rec_id not in self.recordings_filter):
+                        and rec_id
+                        not in self.recordings_filter):
                     continue
 
                 samples.append((subj, rec_id, npz_path))
@@ -63,29 +93,31 @@ class NPZDataset(BaseLoader):
     def _load_frames(self, sample_info):
         """Load all frames from NPZ file."""
         subj, rec_id, npz_path = sample_info
-
-        data = np.load(npz_path, allow_pickle=True)
-        return data["array1"].astype(np.float16)
+        data = self._get_npz_data(npz_path)
+        frames = data["array1"].astype(np.float16)
+        self._clear_cache(npz_path)
+        return frames
 
     def _load_single_frame(self, sample_info, frame_idx):
-        """Load one frame from NPZ file (for streaming)."""
+        """
+        Load one frame from NPZ file (for streaming).
+        Uses cache so file is opened only ONCE.
+        """
         subj, rec_id, npz_path = sample_info
-
-        data = np.load(npz_path, allow_pickle=True)
-        return data["array1"][frame_idx].astype(np.float32)
+        data = self._get_npz_data(npz_path)
+        return data["array1"][frame_idx].astype(
+            np.float16)
 
     def _get_total_frames(self, sample_info):
         """Get frame count from NPZ array."""
         subj, rec_id, npz_path = sample_info
-
-        data = np.load(npz_path, allow_pickle=True)
-        return len(data["array1"])
+        data = self._get_npz_data(npz_path)
+        return data["array1"].shape[0]
 
     def _get_fps(self, sample_info):
         """Compute FPS from timestamps."""
         subj, rec_id, npz_path = sample_info
-
-        data = np.load(npz_path, allow_pickle=True)
+        data = self._get_npz_data(npz_path)
         timestamps = data["array2"]
 
         if len(timestamps) < 2:
@@ -96,7 +128,6 @@ class NPZDataset(BaseLoader):
         if median_diff <= 0:
             return self.default_fps
 
-        # Timestamps in milliseconds → convert
         if median_diff > 1.0:
             return 1000.0 / median_diff
         else:
@@ -105,20 +136,20 @@ class NPZDataset(BaseLoader):
     def _load_ground_truth(self, sample_info, fps):
         """Compute HR/RR from raw physiological signals."""
         subj, rec_id, npz_path = sample_info
+        data = self._get_npz_data(npz_path)
 
-        data = np.load(npz_path, allow_pickle=True)
-
-        # Apply warmup removal to signals too
         warmup_frames = int(self.warmup_seconds * fps)
-        pulse_signal = data["array4"][warmup_frames:].astype(
-            np.float64)
-        resp_signal = data["array5"][warmup_frames:].astype(
-            np.float64)
+        pulse_signal = data["array4"][
+            warmup_frames:].astype(np.float64)
+        resp_signal = data["array5"][
+            warmup_frames:].astype(np.float64)
 
         hr_bpm = self._compute_bpm_from_fft(
-            pulse_signal, fps, freq_range=(0.7, 3.5))
+            pulse_signal, fps,
+            freq_range=(0.7, 3.5))
         rr_bpm = self._compute_bpm_from_fft(
-            resp_signal, fps, freq_range=(0.1, 0.7))
+            resp_signal, fps,
+            freq_range=(0.1, 0.7))
 
         return {
             "hr_bpm":      hr_bpm,
@@ -150,7 +181,8 @@ class NPZDataset(BaseLoader):
 
             n = len(signal)
             window = np.hanning(n)
-            fft_vals = np.abs(np.fft.rfft(signal * window))
+            fft_vals = np.abs(
+                np.fft.rfft(signal * window))
             freqs = np.fft.rfftfreq(n, d=1.0 / fps)
 
             mask = ((freqs >= freq_range[0])
