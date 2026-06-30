@@ -34,9 +34,6 @@ NUM_KEYPOINTS = 54
 def _ensure_uint8_3ch(frames):
     """
     Convert any batch of frames to (N, H, W, 3) uint8.
-
-    Handles float16, float32, float64, uint8,
-    grayscale, 1-channel, 3-channel.
     """
     arr = np.array(frames)
 
@@ -49,22 +46,12 @@ def _ensure_uint8_3ch(frames):
     if arr.dtype in (np.float16, np.float32, np.float64):
         arr = arr.astype(np.float32)
 
-    # (N, H, W) grayscale → normalise → 3ch uint8
-    if arr.ndim == 3:
-        f_min = arr.min(axis=(1, 2), keepdims=True)
-        f_max = arr.max(axis=(1, 2), keepdims=True)
-        rng = f_max - f_min
-        rng[rng == 0] = 1.0
-        normed = ((arr - f_min) / rng * 255).astype(
-            np.uint8)
-        return np.stack([normed, normed, normed], axis=-1)
-
-    # (N, H, W, 1) → squeeze to (N, H, W) → recurse
-    if arr.ndim == 4 and arr.shape[3] == 1:
-        return _ensure_uint8_3ch(arr[:, :, :, 0])
-
-    # (N, H, W, 3) float → use channel 0, normalise
+    # (N, H, W, 3) float in 0-255 range → just clip
+    # (BP4D+ frames loaded by cv2 then cast to float)
     if arr.ndim == 4 and arr.shape[3] == 3:
+        if arr.max() > 1.0 and arr.max() <= 255.5:
+            return np.clip(arr, 0, 255).astype(np.uint8)
+        # Thermal float → normalise channel 0
         gray = arr[:, :, :, 0]
         f_min = gray.min(axis=(1, 2), keepdims=True)
         f_max = gray.max(axis=(1, 2), keepdims=True)
@@ -74,9 +61,23 @@ def _ensure_uint8_3ch(frames):
             np.uint8)
         return np.stack([normed, normed, normed], axis=-1)
 
+    # (N, H, W) grayscale → normalise → 3ch
+    if arr.ndim == 3:
+        f_min = arr.min(axis=(1, 2), keepdims=True)
+        f_max = arr.max(axis=(1, 2), keepdims=True)
+        rng = f_max - f_min
+        rng[rng == 0] = 1.0
+        normed = ((arr - f_min) / rng * 255).astype(
+            np.uint8)
+        return np.stack([normed, normed, normed], axis=-1)
+
+    # (N, H, W, 1) → squeeze
+    if arr.ndim == 4 and arr.shape[3] == 1:
+        return _ensure_uint8_3ch(arr[:, :, :, 0])
+
     raise ValueError(
-        f"Unsupported frame format: "
-        f"shape={arr.shape}, dtype={arr.dtype}")
+        f"Unsupported: shape={arr.shape}, "
+        f"dtype={arr.dtype}")
 
 
 def _ensure_single_uint8_3ch(frame):
@@ -95,28 +96,32 @@ def _ensure_single_uint8_3ch(frame):
     if arr.dtype in (np.float16, np.float32, np.float64):
         arr = arr.astype(np.float32)
 
+    # (H, W, 3) float in 0-255 → just clip
+    if arr.ndim == 3 and arr.shape[2] == 3:
+        if arr.max() > 1.0 and arr.max() <= 255.5:
+            return np.clip(arr, 0, 255).astype(np.uint8)
+        gray = arr[:, :, 0]
+        mn, mx = gray.min(), gray.max()
+        rng = mx - mn if mx > mn else 1.0
+        normed = ((gray - mn) / rng * 255).astype(
+            np.uint8)
+        return np.stack([normed, normed, normed], axis=-1)
+
     # (H, W) grayscale
     if arr.ndim == 2:
         mn, mx = arr.min(), arr.max()
         rng = mx - mn if mx > mn else 1.0
-        normed = ((arr - mn) / rng * 255).astype(np.uint8)
+        normed = ((arr - mn) / rng * 255).astype(
+            np.uint8)
         return np.stack([normed, normed, normed], axis=-1)
 
     # (H, W, 1)
     if arr.ndim == 3 and arr.shape[2] == 1:
         return _ensure_single_uint8_3ch(arr[:, :, 0])
 
-    # (H, W, 3) float → use channel 0, normalise
-    if arr.ndim == 3 and arr.shape[2] == 3:
-        gray = arr[:, :, 0]
-        mn, mx = gray.min(), gray.max()
-        rng = mx - mn if mx > mn else 1.0
-        normed = ((gray - mn) / rng * 255).astype(np.uint8)
-        return np.stack([normed, normed, normed], axis=-1)
-
     raise ValueError(
-        f"Unsupported single frame: "
-        f"shape={arr.shape}, dtype={arr.dtype}")
+        f"Unsupported: shape={arr.shape}, "
+        f"dtype={arr.dtype}")
 
 
 def _detect_face_box(model, frame, padding=50,
