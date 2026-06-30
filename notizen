@@ -29,15 +29,25 @@ print('root_dir aus Config:', repr(ds_config['root_dir']))
 
 
 
-BP4DDataset: 0 recordings found
-
 ── Test get_metadata() ──
-Traceback (most recent call last):
-  File "/Users/valeriamoltschanov/Desktop/test_toolbox/test_quick.py", line 40, in <module>
-    meta = dataset.get_metadata(0)
-           ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/valeriamoltschanov/Desktop/test_toolbox/data/base_loader.py", line 170, in get_metadata
-    sample_info = self.samples[idx]
-                  ~~~~~~~~~~~~^^^^^
-IndexError: list index out of range
+Recording: F004_T1
+FPS: 25.0
+Frames: 1072
+HR GT: 78.5 BPM
+RR GT: 14.9 BPM
 
+Frames: (100, 480, 726, 3), float16
+Dauer: 4.0s bei 25.0 FPS
+Ground Truth: HR=78.5, RR=14.9 BPM
+Physiology: 64597 Werte, ~1506 Hz
+Traceback (most recent call last):
+  File "/Users/valeriamoltschanov/Desktop/test_toolbox/test_quick.py", line 82, in <module>
+    cropped, keypoints = process_with_yolo(
+                         ^^^^^^^^^^^^^^^^^^
+  File "/Users/valeriamoltschanov/Desktop/test_toolbox/utils/yolo_processing.py", line 183, in process_with_yolo
+    frames = _ensure_uint8_3ch(frames)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/valeriamoltschanov/Desktop/test_toolbox/utils/yolo_processing.py", line 53, in _ensure_uint8_3ch
+    raise ValueError(
+ValueError: Unsupported frame format: shape=(100, 480, 726, 3), dtype=float16
+(toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$
