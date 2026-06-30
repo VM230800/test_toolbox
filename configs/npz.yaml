@@ -27,7 +27,7 @@ root_dir: "/Volumes/home/IRData"
 # Subject and recording filters
 # null = load all available
 # List = load only specified entries
-subjects: null        # e.g. ["005", "006"] or null
+subjects: ["018"]        # e.g. ["005", "006"] or null
 recordings: null      # e.g. [0, 1, 5] or null
 
 # Video parameters
