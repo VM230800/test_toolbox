@@ -142,9 +142,14 @@ def run_yolo_and_rois_streaming(dataset, idx, config,
     RAM-friendly: streams frames one-by-one through YOLO.
     """
     det = config["detection"]
+    processing = config.get("processing", {})
+    frame_step = processing.get("frame_step", 1)
 
     frame_iter = dataset.iter_frames(
-        idx, max_frames=max_frames)
+        idx,
+        max_frames=max_frames,
+        frame_step=frame_step,
+    )
 
     cropped_frames, keypoints = process_with_yolo_streaming(
         frame_iterator=frame_iter,
@@ -157,6 +162,13 @@ def run_yolo_and_rois_streaming(dataset, idx, config,
 
     n_detected = sum(
         1 for r in rois_per_frame if r is not None)
+
+    effective_fps = dataset.get_metadata(idx)["fps"]
+    if frame_step > 1:
+        effective_fps /= frame_step
+        print(f"  Frame step: {frame_step} "
+              f"(effective FPS: {effective_fps:.1f})")
+
     print(f"  YOLO: {n_detected}/{len(keypoints)} "
           f"frames with keypoints")
 
