@@ -56,33 +56,51 @@ def _ensure_uint8_3ch(frames):
     )
 
 
-def _ensure_single_uint8_3ch(frame):
-    """Convert a SINGLE frame to (H, W, 3) uint8 for YOLO."""
+def _ensure_uint8_3ch(frames):
+    """Convert any loader output to (N, H, W, 3) uint8 for YOLO."""
 
-    # Already correct format
-    if frame.ndim == 3 and frame.dtype == np.uint8:
-        return frame
+    arr = np.array(frames)
 
-    # Single channel float (NPZ thermal: temperature in °C)
-    if frame.ndim == 2:
-        vmin = np.percentile(frame, 1)
-        vmax = np.percentile(frame, 99)
-        if vmax > vmin:
-            norm = (frame - vmin) / (vmax - vmin) * 255
-        else:
-            norm = np.zeros_like(frame)
-        norm = np.clip(norm, 0, 255).astype(np.uint8)
-        return np.stack([norm, norm, norm], axis=-1)
+    # ── Already uint8 3-channel → done ──
+    if arr.ndim == 4 and arr.dtype == np.uint8 and arr.shape[3] == 3:
+        return arr
 
-    # 3-channel float
-    if frame.ndim == 3 and frame.dtype == np.float32:
-        if frame.max() <= 1.0:
-            return (frame * 255).astype(np.uint8)
-        return np.clip(frame, 0, 255).astype(np.uint8)
+    # ── Any float → float32 for safe math ──
+    if arr.dtype in (np.float16, np.float32, np.float64):
+        arr = arr.astype(np.float32)
+
+    # ── (N, H, W) grayscale float → normalise → 3ch uint8 ──
+    if arr.ndim == 3:
+        f_min = arr.min(axis=(1, 2), keepdims=True)
+        f_max = arr.max(axis=(1, 2), keepdims=True)
+        rng = f_max - f_min
+        rng[rng == 0] = 1.0
+        normed = ((arr - f_min) / rng * 255).astype(np.uint8)
+        return np.stack([normed, normed, normed], axis=-1)
+
+    # ── (N, H, W, 3) float → take channel 0, normalise ──
+    if arr.ndim == 4 and arr.shape[3] == 3:
+        gray = arr[:, :, :, 0]
+        f_min = gray.min(axis=(1, 2), keepdims=True)
+        f_max = gray.max(axis=(1, 2), keepdims=True)
+        rng = f_max - f_min
+        rng[rng == 0] = 1.0
+        normed = ((gray - f_min) / rng * 255).astype(np.uint8)
+        return np.stack([normed, normed, normed], axis=-1)
+
+    # ── (N, H, W, 1) float → squeeze, normalise ──
+    if arr.ndim == 4 and arr.shape[3] == 1:
+        gray = arr[:, :, :, 0]
+        f_min = gray.min(axis=(1, 2), keepdims=True)
+        f_max = gray.max(axis=(1, 2), keepdims=True)
+        rng = f_max - f_min
+        rng[rng == 0] = 1.0
+        normed = ((gray - f_min) / rng * 255).astype(np.uint8)
+        return np.stack([normed, normed, normed], axis=-1)
 
     raise ValueError(
-        f"Unsupported frame format: shape={frame.shape}, "
-        f"dtype={frame.dtype}"
+        f"Unsupported frame format: "
+        f"shape={arr.shape}, dtype={arr.dtype}"
     )
 
 
