@@ -65,7 +65,7 @@ class NPZDataset(BaseLoader):
         subj, rec_id, npz_path = sample_info
 
         data = np.load(npz_path, allow_pickle=True)
-        return data["array1"].astype(np.float32)
+        return data["array1"].astype(np.float16)
 
     def _load_single_frame(self, sample_info, frame_idx):
         """Load one frame from NPZ file (for streaming)."""
