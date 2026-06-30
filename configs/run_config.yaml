@@ -2,15 +2,18 @@
 # Main pipeline configurations
 # ─────────────────────────────────────────────────────────────────
 
-# Used dataset
-dataset: "bp4d"                         # "bp4d" or "npz"
-dataset_config: "configs/bp4d.yaml"
+# Mehrere Datensätze nacheinander
+datasets:
+  - name: "bp4d"
+    config: "configs/bp4d.yaml"
+  - name: "npz"
+    config: "configs/npz.yaml"
 
 # Processing mode
 processing:
-  streaming: true                       # true = RAM-friendly
-  max_frames: null                      # null = all, or e.g. 250
-  frame_step: 2                         # nur jeden 2. Frame
+  streaming: true
+  max_frames: null
+  frame_step: 2                        # nur jeden 2. Frame
   dtype: float16 
 
 # Used face detection (YOLO)
