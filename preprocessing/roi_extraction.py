@@ -1,55 +1,42 @@
 """
-Berechnet 5 ROI-Boxen aus YOLO-Keypoints (54 Punkte).
-Wird von ALLEN Algorithmen genutzt.
+preprocessing/roi_extraction.py
+================================
+Computes 5 ROI boxes from YOLO keypoints (54-point model).
+Used by ICAMethod and ThermalMeanMethod (Garbey works directly with the keypoints and defines its own line geometry, see methods/garbey.py).
 """
 
 import numpy as np
 
-# Indices basierend auf yolo_keypoints.py (54-Punkt-Modell)
-ROI_CONFIGS = {
-    "bp4d": {
-        "left_brow_inner":     21,   # Stirnmitte links
-        "right_brow_inner":    22,   # Stirnmitte rechts
-        "left_eye_outer":      36,   # Äußerer Augenwinkel links
-        "right_eye_outer":     45,   # Äußerer Augenwinkel rechts
-        "left_mouth_corner":   48,   # Mundwinkel links
-        "right_mouth_corner":  50,   # Mundwinkel rechts
-        "left_nose_wing":      32,   # Nasenflügel links
-        "right_nose_wing":     34,   # Nasenflügel rechts
-        "upper_lip_center":    49,   # Oberlippe oben
-        "left_brow_outer":     17,   # Stirn äußerst links
-        "right_brow_outer":    26,   # Stirn äußerst rechts
-    },
-    "betreuer": {
-        "left_brow_inner":     21,
-        "right_brow_inner":    22,
-        "left_eye_outer":      36,
-        "right_eye_outer":     45,
-        "left_mouth_corner":   48,
-        "right_mouth_corner":  50,
-        "left_nose_wing":      32,
-        "right_nose_wing":     34,
-        "upper_lip_center":    49,
-        "left_brow_outer":     17,
-        "right_brow_outer":    26,
-    },
+from utils.yolo_keypoints import get_keypoint_index
+
+ROI_CONFIG = {
+    "forehead_inner_left":  get_keypoint_index("forehead_left_22"),       # Index 21
+    "forehead_inner_right": get_keypoint_index("forehead_right_23"),      # Index 22
+    "forehead_outer_left":  get_keypoint_index("forehead_left_18"),       # Index 17
+    "forehead_outer_right": get_keypoint_index("forehead_right_27"),      # Index 26
+    "left_eye_outer":       get_keypoint_index("left_eye_37"),            # Index 36
+    "right_eye_outer":      get_keypoint_index("right_eye_46"),           # Index 45
+    "left_mouth_corner":    get_keypoint_index("mouth_corner_left_49"),   # Index 48
+    "right_mouth_corner":   get_keypoint_index("mouth_corner_right_51"),  # Index 50
+    "left_nostril":         get_keypoint_index("nostril_left_33"),        # Index 32
+    "right_nostril":        get_keypoint_index("nostril_right_35"),       # Index 34
+    "upper_lip_top":        get_keypoint_index("upper_lip_50"),           # Index 49
 }
 
 
-def compute_rois(keypoints, dataset_name="bp4d"):
-    """Berechnet 5 ROI-Boxen für einen Frame.
-    
+def compute_rois(keypoints, dataset_name=None):
+    """Computes 5 ROI boxes for a frame.
+
     Args:
-        keypoints: (54, 2) Array – vom YOLO-Modell
-        dataset_name: "bp4d" oder "betreuer"
-    
+        keypoints: (54, 2) Array – from YOLO-Modell
+        
     Returns:
-        dict: ROI-Name → (center_x, center_y, radius)
+        dict: ROI-Name -> (center_x, center_y, radius)
     """
-    idx = ROI_CONFIGS[dataset_name]
+    idx = ROI_CONFIG
     kp = keypoints
 
-    # Augenabstand als Skalierung
+    # Eye distance as scale reference
     eye_dist = np.linalg.norm(
         kp[idx["left_eye_outer"]] - kp[idx["right_eye_outer"]]
     )
@@ -61,8 +48,8 @@ def compute_rois(keypoints, dataset_name="bp4d"):
 
     return {
         "forehead": (
-            int((kp[idx["left_brow_inner"], 0] + kp[idx["right_brow_inner"], 0]) / 2),
-            int((kp[idx["left_brow_inner"], 1] + kp[idx["right_brow_inner"], 1]) / 2 - 0.45 * eye_dist),
+            int((kp[idx["forehead_inner_left"], 0] + kp[idx["forehead_inner_right"], 0]) / 2),
+            int((kp[idx["forehead_inner_left"], 1] + kp[idx["forehead_inner_right"], 1]) / 2 - 0.45 * eye_dist),
             r_large,
         ),
         "left_cheek": (
@@ -76,13 +63,13 @@ def compute_rois(keypoints, dataset_name="bp4d"):
             r_large,
         ),
         "nose": (
-            int((kp[idx["left_nose_wing"], 0] + kp[idx["right_nose_wing"], 0]) / 2),
-            int((kp[idx["left_nose_wing"], 1] + kp[idx["right_nose_wing"], 1]) / 2),
+            int((kp[idx["left_nostril"], 0] + kp[idx["right_nostril"], 0]) / 2),
+            int((kp[idx["left_nostril"], 1] + kp[idx["right_nostril"], 1]) / 2),
             r_small,
         ),
         "philtrum": (
-            int(kp[idx["upper_lip_center"], 0]),
-            int(kp[idx["upper_lip_center"], 1]),
+            int(kp[idx["upper_lip_top"], 0]),
+            int(kp[idx["upper_lip_top"], 1]),
             r_small,
         ),
     }
