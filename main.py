@@ -12,8 +12,8 @@ Orchestrates the complete workflow:
     8. Save results (CSV, plots, PDF table)
 
 Supports two processing modes:
-    - streaming: true  → RAM-friendly, one frame at a time
-    - streaming: false → all frames in RAM (for small tests)
+    - BP4D+: streaming (RAM-friendly, one frame at a time)
+    - NPZ:   batch load (compressed files, streaming too slow)
 """
 
 import argparse
@@ -60,24 +60,20 @@ from preprocessing.signal_extraction import (
 from preprocessing.peak_extraction import bandpass_filter
 
 
-# ─────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 # 1. Load configuration
-# ─────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 
 def load_config(config_path):
-    """Load main config and dataset config."""
+    """Load main config."""
     with open(config_path) as f:
         config = yaml.safe_load(f)
-
-    with open(config["dataset_config"]) as f:
-        dataset_config = yaml.safe_load(f)
-
-    return config, dataset_config
+    return config
 
 
-# ─────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 # 2. Load dataset
-# ─────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 
 def load_dataset(config, dataset_config):
     """Load the dataset specified in config."""
@@ -102,20 +98,22 @@ def load_dataset(config, dataset_config):
             fps=dataset_config.get("fps", 30),
         )
     else:
-        raise ValueError(f"Unknown dataset: '{dataset_type}'")
+        raise ValueError(
+            f"Unknown dataset: '{dataset_type}'")
 
-    print(f"Dataset: {dataset_type}, {len(dataset)} samples")
+    print(f"Dataset: {dataset_type}, "
+          f"{len(dataset)} samples")
     return dataset
 
 
-# ─────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 # 3. YOLO + ROI computation
-# ─────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 
 def run_yolo_and_rois(frames, config):
     """
     Face detection → crop → keypoints → ROIs.
-    All frames in RAM (use for small tests).
+    All frames in RAM.
     """
     det = config["detection"]
 
@@ -139,7 +137,8 @@ def run_yolo_and_rois(frames, config):
 def run_yolo_and_rois_streaming(dataset, idx, config,
                                 max_frames=None):
     """
-    RAM-friendly: streams frames one-by-one through YOLO.
+    RAM-friendly: streams frames one-by-one through
+    YOLO. Best for BP4D+ (video files).
     """
     det = config["detection"]
     processing = config.get("processing", {})
@@ -151,12 +150,13 @@ def run_yolo_and_rois_streaming(dataset, idx, config,
         frame_step=frame_step,
     )
 
-    cropped_frames, keypoints = process_with_yolo_streaming(
-        frame_iterator=frame_iter,
-        model_path=det["model_path"],
-        target_size=tuple(det["target_size"]),
-        padding=det.get("padding", 50),
-    )
+    cropped_frames, keypoints = \
+        process_with_yolo_streaming(
+            frame_iterator=frame_iter,
+            model_path=det["model_path"],
+            target_size=tuple(det["target_size"]),
+            padding=det.get("padding", 50),
+        )
 
     rois_per_frame = _keypoints_to_rois(keypoints)
 
@@ -187,9 +187,9 @@ def _keypoints_to_rois(keypoints):
     return rois_per_frame
 
 
-# ─────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 # 4. Run methods
-# ─────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 
 def init_methods(config):
     """Initialise all enabled methods."""
@@ -200,13 +200,16 @@ def init_methods(config):
     if methods_config.get("thermal_mean", {}).get(
             "enabled", False):
         methods["thermal_mean"] = ThermalMeanMethod(
-            methods_config["thermal_mean"], signal_config)
+            methods_config["thermal_mean"],
+            signal_config)
 
-    if methods_config.get("ica", {}).get("enabled", False):
+    if methods_config.get("ica", {}).get(
+            "enabled", False):
         methods["ica"] = ICAMethod(
             methods_config["ica"], signal_config)
 
-    if methods_config.get("garbey", {}).get("enabled", False):
+    if methods_config.get("garbey", {}).get(
+            "enabled", False):
         methods["garbey"] = GarbeyMethod(
             methods_config["garbey"], signal_config)
 
@@ -229,7 +232,8 @@ def run_methods(methods, cropped_frames, keypoints,
                     cropped_frames, rois_per_frame, fps)
 
             results[name] = result
-            print(f"  {name}: HR={result['hr_bpm']:.1f}, "
+            print(f"  {name}: "
+                  f"HR={result['hr_bpm']:.1f}, "
                   f"RR={result['rr_bpm']:.1f} BPM")
 
         except Exception as e:
@@ -243,18 +247,17 @@ def run_methods(methods, cropped_frames, keypoints,
     return results
 
 
-# ─────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 # 5. Visualisation
-# ─────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 
-def save_visualisations(config, sample, cropped, keypoints,
-                        rois, sample_results):
+def save_visualisations(config, sample, cropped,
+                        keypoints, rois,
+                        sample_results):
     """
     Save diagnostic plots for one recording.
 
-    Handles both BP4D+ (with raw waveforms) and NPZ datasets.
-    Uses raw BP/Resp waveforms when available for proper
-    oscillating ground truth comparison.
+    Handles both BP4D+ (with raw waveforms) and NPZ.
     """
     output = config.get("output", {})
     save_dir = output.get("save_dir", "results/")
@@ -268,7 +271,7 @@ def save_visualisations(config, sample, cropped, keypoints,
     save_roi_overlay(cropped[0], keypoints[0],
                      recording_id, save_dir)
 
-    # ── 1b. Method-specific ROI Overlays ──       ← HIER NEU
+    # ── 1b. Method-specific ROI Overlays ──
     for method_name in sample_results.keys():
         method_cfg = config["methods"].get(
             method_name, {})
@@ -281,7 +284,7 @@ def save_visualisations(config, sample, cropped, keypoints,
         except Exception as e:
             warnings.warn(
                 f"    Method overlay failed "
-                f"({method_name}): {e}")                        
+                f"({method_name}): {e}")
 
     # ── 2. Optional Video ──
     if output.get("save_video", False):
@@ -291,8 +294,6 @@ def save_visualisations(config, sample, cropped, keypoints,
                        max_seconds=max_sec)
 
     # ── 3. Determine GT signal source ──
-    # BP4D+: use raw waveforms (BP_mmHg, Resp_Volts)
-    # NPZ:   use pulse_rate / resp_rate signals
     bp_waveform = sample.get("bp_waveform", None)
     resp_waveform = sample.get("resp_waveform", None)
     physio_fps = sample.get("physio_fps", None)
@@ -300,40 +301,34 @@ def save_visualisations(config, sample, cropped, keypoints,
     gt_pulse = sample.get("pulse_rate", None)
     gt_resp = sample.get("resp_rate", None)
 
-    # Choose best HR ground truth signal
     if bp_waveform is not None:
         hr_gt_signal = bp_waveform
         hr_gt_fps = physio_fps
-        hr_gt_source = "waveform"
     elif gt_pulse is not None:
         hr_gt_signal = gt_pulse
-        hr_gt_fps = fps  # same as video if no physio_fps
-        hr_gt_source = "rate"
+        hr_gt_fps = fps
     else:
         hr_gt_signal = None
         hr_gt_fps = None
-        hr_gt_source = None
 
-    # Choose best RR ground truth signal
     if resp_waveform is not None:
         rr_gt_signal = resp_waveform
         rr_gt_fps = physio_fps
-        rr_gt_source = "waveform"
     elif gt_resp is not None:
         rr_gt_signal = gt_resp
         rr_gt_fps = fps
-        rr_gt_source = "rate"
     else:
         rr_gt_signal = None
         rr_gt_fps = None
-        rr_gt_source = None
 
     # ── 4. Signal Comparison Plots ──
     for method_name, result in sample_results.items():
-        if np.isnan(result.get("hr_bpm", float("nan"))):
+        if np.isnan(result.get(
+                "hr_bpm", float("nan"))):
             continue
 
-        method_cfg = config["methods"].get(method_name, {})
+        method_cfg = config["methods"].get(
+            method_name, {})
         roi_names = method_cfg.get("rois", [])
 
         if not roi_names:
@@ -342,21 +337,23 @@ def save_visualisations(config, sample, cropped, keypoints,
         roi_signals = extract_all_roi_signals(
             cropped, rois, roi_names)
 
-        for roi_name, raw_signal in roi_signals.items():
+        for roi_name, raw_signal in \
+                roi_signals.items():
             clean = interpolate_nan(raw_signal)
             if np.isnan(clean).all():
                 continue
 
             # ── HR Signal Comparison ──
-            if hr_gt_signal is not None and len(hr_gt_signal) > 10:
+            if (hr_gt_signal is not None
+                    and len(hr_gt_signal) > 10):
                 bp = config["signal"]["hr_bandpass"]
                 try:
                     filtered = bandpass_filter(
                         clean, fps,
-                        low=bp["low"], high=bp["high"],
+                        low=bp["low"],
+                        high=bp["high"],
                         order=bp["order"],
                     )
-
                     save_signal_comparison(
                         predicted_signal=filtered,
                         gt_signal=hr_gt_signal,
@@ -368,18 +365,19 @@ def save_visualisations(config, sample, cropped, keypoints,
                         method_name=method_name,
                         recording_id=recording_id,
                         save_dir=save_dir,
-                        bandpass=(bp["low"], bp["high"]),
+                        bandpass=(bp["low"],
+                                  bp["high"]),
                         gt_fps=hr_gt_fps,
                     )
                 except Exception as e:
                     warnings.warn(
-                        f"    HR comparison failed: {e}")
+                        f"    HR comparison: {e}")
 
             # ── RR Signal Comparison ──
             if (rr_gt_signal is not None
                     and len(rr_gt_signal) > 10
-                    and not np.isnan(
-                        result.get("rr_bpm", float("nan")))):
+                    and not np.isnan(result.get(
+                        "rr_bpm", float("nan")))):
                 bp_rr = config["signal"]["rr_bandpass"]
                 try:
                     filtered_rr = bandpass_filter(
@@ -388,7 +386,6 @@ def save_visualisations(config, sample, cropped, keypoints,
                         high=bp_rr["high"],
                         order=bp_rr["order"],
                     )
-
                     save_signal_comparison(
                         predicted_signal=filtered_rr,
                         gt_signal=rr_gt_signal,
@@ -406,7 +403,7 @@ def save_visualisations(config, sample, cropped, keypoints,
                     )
                 except Exception as e:
                     warnings.warn(
-                        f"    RR comparison failed: {e}")
+                        f"    RR comparison: {e}")
 
             # ── Physiology Plots (BP4D+ only) ──
             if bp_waveform is not None and physio_fps:
@@ -440,7 +437,7 @@ def save_visualisations(config, sample, cropped, keypoints,
                     )
                 except Exception as e:
                     warnings.warn(
-                        f"    HR physiology failed: {e}")
+                        f"    HR physiology: {e}")
 
             if resp_waveform is not None and physio_fps:
                 try:
@@ -473,17 +470,18 @@ def save_visualisations(config, sample, cropped, keypoints,
                     )
                 except Exception as e:
                     warnings.warn(
-                        f"    RR physiology failed: {e}")
+                        f"    RR physiology: {e}")
 
             break  # Only first valid ROI
 
 
-# ─────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 # 6. Collect results for evaluation
-# ─────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 
-def collect_results(method_results, sample, method_name):
-    """Convert method output + GT into evaluation format."""
+def collect_results(method_results, sample,
+                    method_name):
+    """Convert method output + GT into eval format."""
     return {
         "hr_estimated":    method_results.get(
             "hr_bpm", float("nan")),
@@ -501,12 +499,12 @@ def collect_results(method_results, sample, method_name):
     }
 
 
-# ─────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 # 7. Main pipeline
-# ─────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 
 def run_pipeline(config_path="configs/run_config.yaml"):
-    """Run the full pipeline – supports multiple datasets."""
+    """Run the full pipeline – multiple datasets."""
 
     print("=" * 60)
     print("  Thermal Vital Signs Toolbox")
@@ -516,13 +514,14 @@ def run_pipeline(config_path="configs/run_config.yaml"):
     with open(config_path) as f:
         config = yaml.safe_load(f)
 
-    verbose = config.get("output", {}).get("verbose", True)
+    verbose = config.get("output", {}).get(
+        "verbose", True)
 
     # ── Init methods ──
     methods = init_methods(config)
 
     if not methods:
-        print("No methods enabled. Check run_config.yaml.")
+        print("No methods enabled.")
         return
 
     # ── Init results table ──
@@ -537,7 +536,6 @@ def run_pipeline(config_path="configs/run_config.yaml"):
     if "datasets" in config:
         dataset_list = config["datasets"]
     else:
-        # Backwards compatible: single dataset
         dataset_list = [{
             "name": config["dataset"],
             "config": config["dataset_config"],
@@ -563,12 +561,15 @@ def run_pipeline(config_path="configs/run_config.yaml"):
         ds_config["dataset_config"] = ds_config_path
 
         # ── Load dataset ──
-        dataset = load_dataset(ds_config, dataset_config)
+        dataset = load_dataset(
+            ds_config, dataset_config)
 
         # ── Processing settings ──
         processing = config.get("processing", {})
-        max_frames = processing.get("max_frames", None)
-        use_streaming = processing.get("streaming", True)
+        max_frames = processing.get(
+            "max_frames", None)
+        use_streaming = processing.get(
+            "streaming", True)
         frame_step = processing.get("frame_step", 1)
 
         # ── Process each sample ──
@@ -579,15 +580,19 @@ def run_pipeline(config_path="configs/run_config.yaml"):
             fps = meta["fps"]
 
             print(f"\n{'─' * 50}")
-            print(f"  Sample {idx + 1}/{len(dataset)}: "
-                  f"{recording_id}")
-            print(f"  Frames: {meta['total_frames']}, "
-                  f"FPS: {fps:.1f}")
+            print(f"  Sample {idx + 1}/"
+                  f"{len(dataset)}: {recording_id}")
+            print(f"  Frames: {meta['total_frames']}"
+                  f", FPS: {fps:.1f}")
             print(f"{'─' * 50}")
 
             # ── YOLO + ROIs ──
             try:
-                if use_streaming:
+                # NPZ: batch load (compressed,
+                #       streaming too slow)
+                # BP4D+: streaming (video files,
+                #         RAM-friendly)
+                if use_streaming and ds_name != "npz":
                     cropped, keypoints, rois = \
                         run_yolo_and_rois_streaming(
                             dataset, idx, ds_config,
@@ -595,9 +600,12 @@ def run_pipeline(config_path="configs/run_config.yaml"):
                         )
                 else:
                     sample = dataset[idx]
+                    frames = sample["frames"]
+                    if max_frames:
+                        frames = frames[:max_frames]
                     cropped, keypoints, rois = \
                         run_yolo_and_rois(
-                            sample["frames"], ds_config)
+                            frames, ds_config)
             except Exception as e:
                 warnings.warn(
                     f"  YOLO failed for "
@@ -614,7 +622,8 @@ def run_pipeline(config_path="configs/run_config.yaml"):
             try:
                 save_visualisations(
                     ds_config, meta, cropped,
-                    keypoints, rois, sample_results,
+                    keypoints, rois,
+                    sample_results,
                 )
             except Exception as e:
                 warnings.warn(
@@ -626,13 +635,18 @@ def run_pipeline(config_path="configs/run_config.yaml"):
                 entry = collect_results(
                     result, meta, method_name)
                 entry["dataset"] = ds_name.upper()
-                all_results[method_name].append(entry)
+                all_results[method_name].append(
+                    entry)
 
                 if verbose:
-                    gt_hr = entry["hr_ground_truth"]
-                    gt_rr = entry["rr_ground_truth"]
-                    est_hr = entry["hr_estimated"]
-                    est_rr = entry["rr_estimated"]
+                    gt_hr = entry[
+                        "hr_ground_truth"]
+                    gt_rr = entry[
+                        "rr_ground_truth"]
+                    est_hr = entry[
+                        "hr_estimated"]
+                    est_rr = entry[
+                        "rr_estimated"]
                     print(
                         f"    {method_name}: "
                         f"HR {est_hr:.1f} vs "
@@ -646,7 +660,8 @@ def run_pipeline(config_path="configs/run_config.yaml"):
 
     elapsed = time.time() - total_start
     print(f"\n{'=' * 60}")
-    print(f"  Processing complete in {elapsed:.1f}s")
+    print(f"  Processing complete in "
+          f"{elapsed:.1f}s")
     print(f"{'=' * 60}")
 
     # ── Per-Sample CSV ──
@@ -657,7 +672,8 @@ def run_pipeline(config_path="configs/run_config.yaml"):
 
     if all_rows:
         df = pd.DataFrame(all_rows)
-        summary_dir = os.path.join(save_dir, "summary")
+        summary_dir = os.path.join(
+            save_dir, "summary")
         os.makedirs(summary_dir, exist_ok=True)
         sample_csv = os.path.join(
             summary_dir, "per_sample_results.csv")
@@ -668,7 +684,8 @@ def run_pipeline(config_path="configs/run_config.yaml"):
     for ds_entry in dataset_list:
         ds_name = ds_entry["name"].upper()
 
-        for method_name, results in all_results.items():
+        for method_name, results in \
+                all_results.items():
             ds_results = [
                 r for r in results
                 if r.get("dataset") == ds_name
@@ -692,22 +709,25 @@ def run_pipeline(config_path="configs/run_config.yaml"):
                        eval_result["rr"])
 
     # ── Save results ──
-    table.save_path = os.path.join(save_dir, "summary")
+    table.save_path = os.path.join(
+        save_dir, "summary")
     table.print()
 
-    if config.get("output", {}).get("save_csv", True):
+    if config.get("output", {}).get(
+            "save_csv", True):
         table.save_csv()
 
-    if config.get("output", {}).get("save_plots", True):
+    if config.get("output", {}).get(
+            "save_plots", True):
         table.save_pdf()
 
     print(f"\nResults saved to: {save_dir}")
     print("Done.")
 
 
-# ─────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 # CLI
-# ─────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
