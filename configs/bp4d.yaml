@@ -27,8 +27,8 @@ root_dir: "/Volumes/StudiShare/XDatabase/PPGI/BP4D+_v0.2"
 # Subject and task filters
 # null = load all available
 # List = load only specified entries
-subjects: ["F001", "F002", "F003"] # e.g. ["F001", "F002"] or null
-tasks: ["T1", "T2"]                # e.g. ["T1", "T8"] or null
+subjects: ["F001", "F002"] # e.g. ["F001", "F002"] or null
+tasks: ["T1"]                # e.g. ["T1", "T8"] or null
 
 # Video parameters
 fps: 25 # Fallback-FPS [frames per second]
