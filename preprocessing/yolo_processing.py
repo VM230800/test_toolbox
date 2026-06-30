@@ -28,26 +28,38 @@ NUM_KEYPOINTS = 54
 def _ensure_uint8_3ch(frames):
     """Convert any loader output to (N, H, W, 3) uint8 for YOLO."""
 
-    if frames.ndim == 4 and frames.dtype == np.uint8:
-        return frames
+    arr = np.array(frames)
 
-    # ── Convert float16 → float32 first ──
-    if frames.dtype == np.float16:
-        frames = frames.astype(np.float32)
+    # ── Already uint8 3-channel → done ──
+    if arr.ndim == 4 and arr.dtype == np.uint8 and arr.shape[3] == 3:
+        return arr
 
-    # Single channel float (e.g. NPZ thermal data)
-    if frames.ndim == 3 and frames.dtype in (np.float32, np.float64):
-        f_min = frames.min(axis=(1, 2), keepdims=True)
-        f_max = frames.max(axis=(1, 2), keepdims=True)
+    # ── Any float → float32 for safe math ──
+    if arr.dtype in (np.float16, np.float32, np.float64):
+        arr = arr.astype(np.float32)
+
+    # ── (N, H, W) grayscale float → normalise → 3ch uint8 ──
+    if arr.ndim == 3:
+        f_min = arr.min(axis=(1, 2), keepdims=True)
+        f_max = arr.max(axis=(1, 2), keepdims=True)
         rng = f_max - f_min
         rng[rng == 0] = 1.0
-        normed = ((frames - f_min) / rng * 255).astype(np.uint8)
+        normed = ((arr - f_min) / rng * 255).astype(np.uint8)
         return np.stack([normed, normed, normed], axis=-1)
 
-    # 3-channel float (e.g. BP4D+ thermal)
-    if frames.ndim == 4 and frames.dtype in (np.float32, np.float64):
-        # Use first channel to normalise
-        gray = frames[:, :, :, 0]
+    # ── (N, H, W, 3) float → take channel 0, normalise ──
+    if arr.ndim == 4 and arr.shape[3] == 3:
+        gray = arr[:, :, :, 0]
+        f_min = gray.min(axis=(1, 2), keepdims=True)
+        f_max = gray.max(axis=(1, 2), keepdims=True)
+        rng = f_max - f_min
+        rng[rng == 0] = 1.0
+        normed = ((gray - f_min) / rng * 255).astype(np.uint8)
+        return np.stack([normed, normed, normed], axis=-1)
+
+    # ── (N, H, W, 1) float → squeeze, normalise ──
+    if arr.ndim == 4 and arr.shape[3] == 1:
+        gray = arr[:, :, :, 0]
         f_min = gray.min(axis=(1, 2), keepdims=True)
         f_max = gray.max(axis=(1, 2), keepdims=True)
         rng = f_max - f_min
@@ -56,8 +68,8 @@ def _ensure_uint8_3ch(frames):
         return np.stack([normed, normed, normed], axis=-1)
 
     raise ValueError(
-        f"Unsupported frame format: shape={frames.shape}, "
-        f"dtype={frames.dtype}"
+        f"Unsupported frame format: "
+        f"shape={arr.shape}, dtype={arr.dtype}"
     )
 
 def _detect_face_box(model, frame, padding=50, confidence=0.5):
