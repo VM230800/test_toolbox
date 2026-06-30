@@ -9,14 +9,43 @@ Frames: (100, 480, 726, 3), float16
 Dauer: 4.0s bei 25.0 FPS
 Ground Truth: HR=78.5, RR=14.9 BPM
 Physiology: 64597 Werte, ~1506 Hz
-Traceback (most recent call last):
-  File "/Users/valeriamoltschanov/Desktop/test_toolbox/test_quick.py", line 82, in <module>
-    cropped, keypoints = process_with_yolo(
-                         ^^^^^^^^^^^^^^^^^^
-  File "/Users/valeriamoltschanov/Desktop/test_toolbox/utils/yolo_processing.py", line 183, in process_with_yolo
-    frames = _ensure_uint8_3ch(frames)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/valeriamoltschanov/Desktop/test_toolbox/utils/yolo_processing.py", line 53, in _ensure_uint8_3ch
-    raise ValueError(
-ValueError: Unsupported frame format: shape=(100, 480, 726, 3), dtype=float16
+[W NNPACK.cpp:64] Could not initialize NNPACK! Reason: Unsupported hardware.
+/Users/valeriamoltschanov/Desktop/test_toolbox/utils/yolo_processing.py:130: UserWarning: No face detected, using full frame.
+  warnings.warn("No face detected, using full frame.")
+/Users/valeriamoltschanov/Desktop/test_toolbox/utils/yolo_processing.py:236: UserWarning: YOLO found no keypoints in 100/100 frames.
+  warnings.warn(
+YOLO: 0/100 frames with keypoints
+  Saved: results/F004_T1/F004_T1_roi_overlay.png
+  Saved: results/F004_T1/F004_T1_thermal_mean_roi_overlay.png
+  Saved: results/F004_T1/F004_T1_ica_roi_overlay.png
+  Saved: results/F004_T1/F004_T1_garbey_roi_overlay.png
+
+1. Thermal Mean:
+   HR: nan (GT: 78.5, Error: nan)
+   RR: nan (GT: 14.9)
+
+2. ICA:
+/Users/valeriamoltschanov/Desktop/test_toolbox/methods/ica.py:350: UserWarning: ICA needs at least 2 valid ROI signals.
+  warnings.warn(
+   HR: nan (GT: 78.5, Error: nan)
+   RR: nan (GT: 14.9)
+
+3. Garbey:
+   HR: 90.0 (GT: 78.5, Error: 11.5)
+   RR: 15.0 (GT: 14.9)
+
+──────────────────────────────────────────────────
+Generating plots...
+
+══════════════════════════════════════════════════
+  ZUSAMMENFASSUNG – F004_T1
+══════════════════════════════════════════════════
+  Methode           HR est    HR GT    Error   RR est    RR GT
+  ──────────────────────────────────────────────────────────
+  Thermal Mean        nan     78.5     nan      nan     14.9
+  ICA                 nan     78.5     nan      nan     14.9
+  Garbey             90.0     78.5    11.5     15.0     14.9
+
+Plots: results/F004_T1/
+FERTIG!
 (toolbox) MacBook-Air-4:test_toolbox valeriamoltschanov$ 
