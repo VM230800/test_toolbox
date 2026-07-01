@@ -4,8 +4,8 @@ data/npz_loader.py
 NPZ thermal dataset loader. Inherits from BaseLoader.
 Only implements NPZ-specific logic.
 
-Optimised: Metadata (timestamps, physio) loaded separately
-from frames. Frames array loaded ONCE on first access,
+Metadata (timestamps, physio) loaded separately
+from frames. Frames array loaded once on first access,
 then cached for instant per-frame streaming.
 """
 
@@ -41,7 +41,7 @@ class NPZDataset(BaseLoader):
     def _get_npz_data(self, npz_path):
         """
         Load NPZ metadata (timestamps, physio) only.
-        Does NOT load frames – use _get_frames_array().
+        Does not load frames – use _get_frames_array().
         """
         if npz_path not in self._npz_cache:
             raw = np.load(npz_path, allow_pickle=True)
@@ -56,7 +56,7 @@ class NPZDataset(BaseLoader):
 
     def _get_frames_array(self, npz_path):
         """
-        Load frames array ONCE and cache it.
+        Load frames array once and cache it.
         First call: ~30 sec (reads from disk).
         All subsequent calls: instant (from RAM).
         """
@@ -129,7 +129,7 @@ class NPZDataset(BaseLoader):
 
     def _load_single_frame(self, sample_info, frame_idx):
         """
-        Load one frame. Frames array loaded ONCE
+        Load one frame. Frames array loaded once
         on first call, then cached for instant access.
         """
         subj, rec_id, npz_path = sample_info
@@ -137,7 +137,7 @@ class NPZDataset(BaseLoader):
         return frames[frame_idx].astype(np.float16)
 
     def _get_total_frames(self, sample_info):
-        """Get frame count WITHOUT loading frames."""
+        """Get frame count without loading frames."""
         subj, rec_id, npz_path = sample_info
         data = self._get_npz_data(npz_path)
         return data["_shape"][0]
