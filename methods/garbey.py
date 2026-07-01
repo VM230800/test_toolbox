@@ -6,18 +6,11 @@ Vital sign estimation based on Garbey et al. (2007).
 Method:
     1. Define a line along a blood vessel between two keypoints
     2. Sample temperature values along this line for each frame
-    3. Average across the line width (perpendicular samples)
+    3. Average across the line width
     4. Per line point: normalise, mirror, compute FFT
     5. Average power spectra across all line points
     6. Find dominant frequency in the physiological band
     7. Subharmonic correction (if detected peak is half the true rate)
-
-Key difference to other methods:
-    This method does NOT use area-based ROIs. Instead it samples
-    along a 1D line that follows a superficial blood vessel.
-    This is closer to the original thermal pulse measurement idea:
-    the blood pulse travels along the vessel, creating a spatial-
-    temporal pattern that can be captured along the vessel path.
 
 References:
     Garbey, M., Sun, N., Merla, A., & Pavlidis, I. (2007).
@@ -35,14 +28,7 @@ import numpy as np
 # ─────────────────────────────────────────────────────────────────
 
 # Default keypoint pairs for vessel lines.
-# These indices refer to the YOLO 54-keypoint model
-# (see preprocessing/yolo_keypoints.py).
-#
-# HR: Line along the left temple (superficial temporal artery)
-#     Keypoint 0 (Schläfe oben) → Keypoint 2 (Wange oben)
-#
-# RR: Line from mouth corner to lower lip (airflow region)
-#     Keypoint 48 (Mundwinkel links) → Keypoint 53 (Unterlippe)
+# These indices refer to the YOLO 54-keypoint model (preprocessing/yolo_keypoints.py).
 
 DEFAULT_LINES = {
     "hr": {"p1": 17, "p2": 1, "name": "temporal_artery_left"},
@@ -51,7 +37,7 @@ DEFAULT_LINES = {
 
 
 # ─────────────────────────────────────────────────────────────────
-# Line-based signal extraction (Garbey-specific)
+# Line-based signal extraction
 # ─────────────────────────────────────────────────────────────────
 
 def _extract_line_values(frames, keypoints, line_def,
@@ -124,7 +110,7 @@ def _extract_line_values(frames, keypoints, line_def,
 
 
 # ─────────────────────────────────────────────────────────────────
-# Spectral analysis (Garbey-specific)
+# Spectral analysis
 # ─────────────────────────────────────────────────────────────────
 
 def _averaged_power_spectrum(line_values, fps):
@@ -205,9 +191,6 @@ def _subharmonic_correction(freq_hz, freqs, spectrum, low_hz, high_hz):
     spectral line (>= 50% of the original peak) and falls within
     the valid band, use the double frequency instead.
 
-    This correction is not in the original Garbey paper but was
-    found necessary during development.
-
     Args:
         freq_hz: float, detected dominant frequency
         freqs:   np.ndarray, frequency axis
@@ -236,22 +219,10 @@ def _subharmonic_correction(freq_hz, freqs, spectrum, low_hz, high_hz):
 
 
 # ─────────────────────────────────────────────────────────────────
-# Public API
+# Main functions
 # ─────────────────────────────────────────────────────────────────
 
 class GarbeyMethod:
-    """
-    Garbey (2007) vessel-line based vital sign estimator.
-
-    Usage:
-        method = GarbeyMethod(config["methods"]["garbey"], config["signal"])
-        result = method.estimate(frames, keypoints, fps)
-
-    Note:
-        Unlike ICA and thermal_mean, this method receives raw
-        keypoints (N, 54, 2) instead of rois_per_frame, because
-        it defines its own line-based ROIs from keypoint pairs.
-    """
 
     def __init__(self, method_config, signal_config):
         """
