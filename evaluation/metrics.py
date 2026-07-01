@@ -1,10 +1,9 @@
 """
 evaluation/metrics.py
 =====================
-Evaluation-Metriken für HR und RR.
+Evaluation metrics for HR and RR.
 
-KEINE Signalverarbeitung hier! Die passiert in preprocessing/.
-Hier kommen nur fertige BPM-Werte rein → Metriken + Plots raus.
+No signal processing. This module only receives final BPM values → outputs metrics and plots.
 """
 
 import numpy as np
@@ -12,18 +11,18 @@ from evaluation.bland_altman import BlandAltman
 
 
 # ═══════════════════════════════════════════════
-# Metriken berechnen
+# Compute evaluation metrics
 # ═══════════════════════════════════════════════
 
 def compute_metrics(estimated, ground_truth):
-    """Alle Metriken für eine Liste von Schätzungen.
-    
+    """Compute all evaluation metrics for a list of estimates.
+
     Args:
-        estimated:    Liste/Array von geschätzten BPM-Werten
-        ground_truth: Liste/Array von Ground-Truth BPM-Werten
-    
+        estimated:    List/array of estimated BPM values
+        ground_truth: List/array of ground-truth BPM values
+
     Returns:
-        dict mit MAE, MAE_SE, RMSE, MAPE, Pearson, n
+        Dictionary containing MAE, MAE_SE, RMSE, MAPE, Pearson, and n
     """
     est = np.asarray(estimated, dtype=float)
     gt  = np.asarray(ground_truth, dtype=float)
@@ -49,7 +48,7 @@ def compute_metrics(estimated, ground_truth):
 
 
 def print_metrics(metrics, label=""):
-    """Metriken formatiert ausgeben."""
+    """Print evaluation metrics in a formatted way."""
     print(f"  {label}")
     print(f"    MAE     : {metrics['MAE']:.2f} ± {metrics['MAE_SE']:.2f} BPM")
     print(f"    RMSE    : {metrics['RMSE']:.2f} BPM")
@@ -59,35 +58,35 @@ def print_metrics(metrics, label=""):
 
 
 # ═══════════════════════════════════════════════
-# Evaluation pro Algorithmus
+# Evaluate a single algorithm
 # ═══════════════════════════════════════════════
 
 def evaluate_algorithm(results, algo_name, save_dir="results/"):
-    """Evaluiert einen Algorithmus komplett.
-    
+    """Evaluate a complete algorithm.
+
     Args:
-        results:   Liste von Ergebnis-Dicts aus method.estimate()
-                   Jedes Dict hat: hr_estimated, hr_ground_truth,
-                                   rr_estimated, rr_ground_truth
+        results:   List of result dictionaries returned by method.estimate().
+                   Each dictionary contains: hr_estimated, hr_ground_truth,
+                   rr_estimated, rr_ground_truth
         algo_name: "ICA", "Garbey", "NoseROI"
-        save_dir:  Ordner für Plots
-    
+        save_dir:  Directory where plots are saved
+
     Returns:
-        dict mit HR- und RR-Metriken
+        Dictionary containing HR and RR metrics
     """
     hr_est = np.array([r["hr_estimated"] for r in results])
     hr_gt  = np.array([r["hr_ground_truth"] for r in results])
     rr_est = np.array([r["rr_estimated"] for r in results])
     rr_gt  = np.array([r["rr_ground_truth"] for r in results])
 
-    # HR Metriken
+    # HR metrics
     hr_metrics = compute_metrics(hr_est, hr_gt)
     print(f"\n{'='*50}")
     print(f"  {algo_name} – Heart Rate")
     print(f"{'='*50}")
     print_metrics(hr_metrics, label="HR")
 
-    # RR Metriken
+    # RR metrics
     rr_metrics = compute_metrics(rr_est, rr_gt)
     print(f"\n  {algo_name} – Respiration Rate")
     print(f"{'='*50}")
