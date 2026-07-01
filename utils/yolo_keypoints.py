@@ -1,3 +1,14 @@
+""" 
+utils/yolo_keypoints.py
+=======================
+Facial keypoint and region definitions for YOLO-based landmark detection.
+
+Contains:
+- Mapping from keypoint indices to anatomical labels
+- Region groupings for higher-level facial analysis
+- Utility functions for name/index/region conversion 
+"""
+
 yolo_keypoint_names = {
     # --- Left facial contour (outer edge, top to bottom) ---
     0:  "contour_left_1",           # Image No. 1 – upper temple
