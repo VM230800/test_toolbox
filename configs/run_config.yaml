@@ -2,7 +2,7 @@
 # Main pipeline configurations
 # ─────────────────────────────────────────────────────────────────
 
-# Mehrere Datensätze nacheinander
+# Process multiple datasets sequentially
 datasets:
   - name: "bp4d"
     config: "configs/bp4d.yaml"
@@ -13,7 +13,7 @@ datasets:
 processing:
   streaming: true
   max_frames: null
-  frame_step: 2                        # nur jeden 2. Frame
+  frame_step: 2                        # Process every second frame only
   dtype: float16 
 
 # Used face detection (YOLO)
