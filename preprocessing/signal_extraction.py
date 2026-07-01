@@ -6,7 +6,7 @@ Extracts temperature time series from ROIs across all frames.
 Input:  Thermal frames + ROI definitions per frame
 Output: 1D temperature signal per ROI (mean temperature over time)
 
-This module does NO filtering or frequency estimation.
+This module does no filtering or frequency estimation.
 It only converts spatial ROI data into temporal signals.
 """
 
