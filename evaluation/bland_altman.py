@@ -1,5 +1,5 @@
 """
-bland_altman.py
+evaluation/bland_altman.py
 ===============
 Bland-Altman statistics and plots for the Thermal Vital Signs Toolbox.
  
